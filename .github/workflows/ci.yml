@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: lint & test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint (ruff) — 미사용 import/변수/재정의 검사
+        run: ruff check src/agent --select F401,F811,F841
+
+      - name: Run test suites
+        # 각 테스트 파일은 boto3 없이 동작하도록 tests/_stubs를 PYTHONPATH에 둔다.
+        # 하나라도 실패하면 잡 전체가 실패하도록 -e 로 실행.
+        run: |
+          set -e
+          for t in tests/test_*.py; do
+            echo "=== $t ==="
+            PYTHONPATH="tests/_stubs" python "$t"
+          done

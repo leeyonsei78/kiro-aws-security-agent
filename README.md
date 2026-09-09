@@ -1,5 +1,9 @@
 # AWS Security Monitoring Agent
 
+[![CI](https://github.com/leeyonsei78/kiro-aws-security-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/leeyonsei78/kiro-aws-security-agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
+
 AWS 보안 서비스/장비의 findings(위협 탐지 결과)를 **수집 → 정규화 → 필터링 → 알림**하는 확장 가능한 에이전트입니다.
 
 > 🚀 **처음 오셨나요?** [**따라하기 매뉴얼**](따라하기_매뉴얼.md)을 그대로 따라 하면 내려받기부터 실행·검증(AWS 없이 약 10분)까지 완료할 수 있습니다.
@@ -105,3 +109,20 @@ PYTHONPATH=src python -m agent.webui.server   # http://127.0.0.1:8080
 Lambda + IAM + SNS + EventBridge(스케줄/실시간) + (선택)방화벽 HTTP API를 한 번에 생성. 절차는 [docs/DEPLOY.md](docs/DEPLOY.md).
 
 자세한 설정은 [docs/CONFIG.md](docs/CONFIG.md) 참고.
+
+
+## 개발 / 테스트
+
+```bash
+# 린트 (미사용 import/변수/재정의 검사)
+ruff check src/agent --select F401,F811,F841
+
+# 테스트 (boto3 없이 동작 — stub 경로 사용)
+for t in tests/test_*.py; do PYTHONPATH="tests/_stubs" python "$t"; done
+```
+
+push/PR 시 [GitHub Actions CI](.github/workflows/ci.yml)가 Python 3.10/3.11/3.12에서 위 검사를 자동 실행합니다.
+
+## 라이선스
+
+[MIT](LICENSE) © 2026 leeyonsei78
