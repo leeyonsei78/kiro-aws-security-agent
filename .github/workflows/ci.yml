@@ -39,3 +39,23 @@ jobs:
             echo "=== $t ==="
             PYTHONPATH="tests/_stubs" python "$t"
           done
+
+  integration:
+    name: moto integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies (boto3 + moto + pytest)
+        run: pip install boto3 "moto[all]" pytest
+
+      - name: Run moto integration tests
+        # 실제 boto3 호출 경로를 moto 가상 AWS로 검증. -p no:cacheprovider 로 캐시 회피.
+        # moto 설치돼 있으므로 conftest가 테스트를 수집·실행한다.
+        run: PYTHONPATH=src python -m pytest tests/integration -v

@@ -118,11 +118,18 @@ Lambda + IAM + SNS + EventBridge(스케줄/실시간) + (선택)방화벽 HTTP A
 # 린트 (미사용 import/변수/재정의 검사)
 ruff check src/agent --select F401,F811,F841
 
-# 테스트 (boto3 없이 동작 — stub 경로 사용)
+# 단위 테스트 (boto3 없이 동작 — stub 경로 사용)
 for t in tests/test_*.py; do PYTHONPATH="tests/_stubs" python "$t"; done
+
+# 통합 테스트 (실제 boto3 호출 경로를 moto 가상 AWS로 검증)
+pip install -r requirements-dev.txt
+PYTHONPATH=src python -m pytest tests/integration -v
 ```
 
-push/PR 시 [GitHub Actions CI](.github/workflows/ci.yml)가 Python 3.10/3.11/3.12에서 위 검사를 자동 실행합니다.
+- **단위 테스트**: 외부 의존성 없이 파싱·정규화·필터·라우팅·인증을 검증 (`tests/test_*.py`)
+- **통합 테스트**: `moto`로 실제 AWS 호출 경로(`collect` / remediator `_apply`)를 검증 (`tests/integration/`). moto 미설치 시 자동 skip.
+
+push/PR 시 [GitHub Actions CI](.github/workflows/ci.yml)가 두 종류를 모두 자동 실행합니다 (단위: Python 3.10/3.11/3.12, 통합: moto 잡).
 
 ## 라이선스
 
