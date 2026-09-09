@@ -1,0 +1,77 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "GuardDutyRead",
+      "Effect": "Allow",
+      "Action": [
+        "guardduty:ListDetectors",
+        "guardduty:ListFindings",
+        "guardduty:GetFindings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SecurityHubRead",
+      "Effect": "Allow",
+      "Action": [
+        "securityhub:GetFindings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Ec2NetworkRead",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeNetworkAcls"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AccessAnalyzerRead",
+      "Effect": "Allow",
+      "Action": [
+        "access-analyzer:ListAnalyzers",
+        "access-analyzer:ListFindings"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudTrailRead",
+      "Effect": "Allow",
+      "Action": [
+        "cloudtrail:LookupEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "LogsInsightsRead",
+      "Effect": "Allow",
+      "Action": [
+        "logs:StartQuery",
+        "logs:GetQueryResults",
+        "logs:StopQuery"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NotifyViaSns",
+      "Effect": "Allow",
+      "Action": [
+        "sns:Publish"
+      ],
+      "Resource": "arn:aws:sns:*:*:security-alerts*"
+    },
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*"
+    }
+  ]
+}

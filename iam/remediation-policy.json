@@ -1,0 +1,56 @@
+{
+  "_comment": "자동 대응(remediation)을 실제로 적용(REMEDIATION_DRY_RUN=false)할 때만 부여하는 쓰기 권한. dry-run만 쓸 경우 이 정책은 부착하지 마세요.",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NaclBlockIp",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkAclEntry"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SgRevokeIngress",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RevokeSecurityGroupIngress"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "S3PublicBlock",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketPublicAccessBlock"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WafIpSetBlock",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:GetIPSet",
+        "wafv2:UpdateIPSet"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamDisableKey",
+      "Effect": "Allow",
+      "Action": [
+        "iam:UpdateAccessKey"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Ec2Quarantine",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:ModifyInstanceAttribute"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

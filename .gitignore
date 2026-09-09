@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+function.zip
+.venv/
+*.json.out
+out.json
+.ruff_cache/
+.kiro/
+deploy/terraform/build/
+deploy/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+.aws-sam/

@@ -1,0 +1,9 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "security-agent"
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+confirm_changeset = true
+# 배포 시 파라미터 오버라이드 예시:
+# parameter_overrides = "MinSeverity=HIGH Collectors=guardduty,securityhub SlackWebhookUrl=https://hooks.slack.com/... NotificationEmail=sec@example.com EnableFirewallEndpoint=true"

@@ -1,0 +1,188 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AWS Security Monitoring Agent - 수집(GuardDuty/Security Hub/Access Analyzer/CloudTrail/
+  VPC Flow Logs/SG) → 정규화 → 필터 → 알림(Slack/Email) → 자동 대응(옵션).
+  하나의 Lambda가 스케줄 폴링 / 실시간 이벤트 / 방화벽 webhook(HTTP)을 모두 처리.
+
+Parameters:
+  MinSeverity:
+    Type: String
+    Default: MEDIUM
+    AllowedValues: [INFORMATIONAL, LOW, MEDIUM, HIGH, CRITICAL]
+    Description: 이 심각도 이상만 알림
+  Collectors:
+    Type: String
+    Default: "guardduty,securityhub"
+    Description: 폴링에 사용할 collector (쉼표구분)
+  SlackWebhookUrl:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: Slack Incoming Webhook URL (선택)
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: 이메일 알림 수신 주소 (선택, 입력 시 SNS 구독 생성)
+  ScheduleExpression:
+    Type: String
+    Default: "rate(1 hour)"
+    Description: 폴링 스케줄
+  LookbackMinutes:
+    Type: String
+    Default: "70"
+    Description: 폴링 조회 윈도우(분). 스케줄 주기보다 약간 크게 권장
+  RemediationEnabled:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: 자동 대응 활성화 (기본 비활성)
+  RemediationDryRun:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: 자동 대응 dry-run (기본 true, 실제 변경은 false로 명시)
+  EnableFirewallEndpoint:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: 써드파티 방화벽 webhook용 HTTP API 생성 여부
+  EnableRemediationPolicy:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: 대응(쓰기) IAM 권한을 역할에 부여할지 (실제 적용 시 true)
+
+Conditions:
+  HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+  FirewallOn: !Equals [!Ref EnableFirewallEndpoint, "true"]
+  RemediationPolicyOn: !Equals [!Ref EnableRemediationPolicy, "true"]
+
+Globals:
+  Function:
+    Timeout: 120
+    MemorySize: 256
+    Runtime: python3.11
+
+Resources:
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub "${AWS::StackName}-security-alerts"
+
+  AlertsEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasEmail
+    Properties:
+      TopicArn: !Ref AlertsTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+
+  SecurityAgentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-agent"
+      # src/ 를 코드 루트로 패키징하면 handler 경로가 agent.handler.lambda_handler
+      CodeUri: ../../src/
+      Handler: agent.handler.lambda_handler
+      Environment:
+        Variables:
+          MIN_SEVERITY: !Ref MinSeverity
+          COLLECTORS: !Ref Collectors
+          LOOKBACK_MINUTES: !Ref LookbackMinutes
+          SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
+          SNS_TOPIC_ARN: !Ref AlertsTopic
+          REMEDIATION_ENABLED: !Ref RemediationEnabled
+          REMEDIATION_DRY_RUN: !Ref RemediationDryRun
+      Policies:
+        # --- 읽기 전용 수집 권한 (iam/agent-policy.json 과 동일 범위) ---
+        - Statement:
+            - Sid: SecurityReads
+              Effect: Allow
+              Action:
+                - guardduty:ListDetectors
+                - guardduty:ListFindings
+                - guardduty:GetFindings
+                - securityhub:GetFindings
+                - ec2:DescribeSecurityGroups
+                - ec2:DescribeNetworkAcls
+                - access-analyzer:ListAnalyzers
+                - access-analyzer:ListFindings
+                - cloudtrail:LookupEvents
+                - logs:StartQuery
+                - logs:GetQueryResults
+                - logs:StopQuery
+              Resource: "*"
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt AlertsTopic.TopicName
+        # --- 대응(쓰기) 권한: EnableRemediationPolicy=true 일 때만 ---
+        - !If
+          - RemediationPolicyOn
+          - Statement:
+              - Sid: Remediation
+                Effect: Allow
+                Action:
+                  - ec2:CreateNetworkAclEntry
+                  - ec2:RevokeSecurityGroupIngress
+                  - ec2:ModifyInstanceAttribute
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:GetBucketPublicAccessBlock
+                  - wafv2:GetIPSet
+                  - wafv2:UpdateIPSet
+                  - iam:UpdateAccessKey
+                Resource: "*"
+          - !Ref AWS::NoValue
+      Events:
+        # (A) 주기적 폴링
+        ScheduledPoll:
+          Type: Schedule
+          Properties:
+            Schedule: !Ref ScheduleExpression
+        # (B) 실시간 이벤트 - GuardDuty
+        GuardDutyFinding:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source: ["aws.guardduty"]
+              detail-type: ["GuardDuty Finding"]
+        # (B) 실시간 이벤트 - Security Hub
+        SecurityHubFinding:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source: ["aws.securityhub"]
+              detail-type: ["Security Hub Findings - Imported"]
+        # (B) 실시간 이벤트 - IAM Access Analyzer
+        AccessAnalyzerFinding:
+          Type: EventBridgeRule
+          Properties:
+            Pattern:
+              source: ["aws.access-analyzer"]
+              detail-type: ["Access Analyzer Finding"]
+        # (C) 써드파티 방화벽 webhook (HTTP) - EnableFirewallEndpoint=true 일 때만
+        FirewallWebhook:
+          Type: HttpApi
+          Condition: FirewallOn
+          Properties:
+            ApiId: !Ref FirewallApi
+            Path: /firewall
+            Method: POST
+
+  # (C) 써드파티 방화벽 webhook용 HTTP API (선택)
+  FirewallApi:
+    Type: AWS::Serverless::HttpApi
+    Condition: FirewallOn
+    Properties:
+      StageName: prod
+
+Outputs:
+  FunctionArn:
+    Description: Security Agent Lambda ARN
+    Value: !GetAtt SecurityAgentFunction.Arn
+  AlertsTopicArn:
+    Description: 알림 SNS 토픽 ARN
+    Value: !Ref AlertsTopic
+  FirewallWebhookUrl:
+    Condition: FirewallOn
+    Description: 방화벽 장비가 POST 할 webhook URL (?vendor= 로 벤더 지정 가능)
+    Value: !Sub "https://${FirewallApi}.execute-api.${AWS::Region}.amazonaws.com/prod/firewall"
