@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class StdoutNotifier(BaseNotifier):
     name = "stdout"
+    channel_label = "표준 출력(stdout)"
 
     def notify(self, findings: list[SecurityFinding]) -> None:
         if not findings:

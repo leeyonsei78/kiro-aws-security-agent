@@ -78,8 +78,12 @@ def test_index_html_served():
     assert "<!DOCTYPE html>" in INDEX_HTML
     assert "/api/firewall" in INDEX_HTML
     assert "/api/event" in INDEX_HTML
+    assert "/api/pipeline" in INDEX_HTML       # 전체 파이프라인 모드
+    assert "전체 파이프라인" in INDEX_HTML       # 모드 토글
+    assert "알림 미리보기" in INDEX_HTML         # 알림 결과 섹션
+    assert "자동 대응" in INDEX_HTML             # 대응 결과 섹션
     assert "analyze()" in INDEX_HTML
-    print("OK index html contains endpoints & analyze")
+    print("OK index html contains endpoints, pipeline mode & result sections")
 
 
 if __name__ == "__main__":

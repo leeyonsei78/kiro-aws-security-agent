@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
+import copy
+
 from .config import Config
 from .models import SecurityFinding, utcnow
 from .registry import (
@@ -157,4 +159,83 @@ def preview_parse(*, event: dict | None = None, firewall_payload: dict | None = 
         "min_severity": cfg.min_severity.name,
         "all_findings": [f.to_dict() for f in collected],
         "matched_findings": [f.to_dict() for f in matched],
+    }
+
+
+def _parse_to_findings(event: dict | None, firewall_payload: dict | None,
+                       cfg: Config) -> tuple[list[SecurityFinding], dict | None]:
+    """이벤트/방화벽 payload를 정규화 finding 목록으로. 실패 시 (빈목록, 에러dict)."""
+    collected: list[SecurityFinding] = []
+    if firewall_payload is not None:
+        collector = build_collector("firewall_syslog", cfg)
+        if collector:
+            collected.extend(list(collector.parse_event(firewall_payload)))
+    elif event is not None:
+        detail_type = event.get("detail-type", "")
+        collector_name = EVENT_TYPE_TO_COLLECTOR.get(detail_type)
+        if not collector_name:
+            return [], {
+                "ok": False,
+                "reason": f"지원하지 않는 detail-type: {detail_type!r}",
+                "supported": sorted(EVENT_TYPE_TO_COLLECTOR.keys()),
+            }
+        collector = build_collector(collector_name, cfg)
+        if collector:
+            collected.extend(list(collector.parse_event(event)))
+    return collected, None
+
+
+def preview_pipeline(*, event: dict | None = None, firewall_payload: dict | None = None,
+                     cfg: Config) -> dict:
+    """전체 파이프라인 미리보기(웹 UI 전용): 파싱→정규화→필터→알림포맷→대응 dry-run.
+
+    실제 알림 전송이나 AWS 변경은 하지 않는다:
+      - notifier는 render()로 "보낼 메시지"만 문자열로 생성
+      - remediator는 강제 dry-run으로 "수행할 액션 계획"만 산출
+    """
+    collected, err = _parse_to_findings(event, firewall_payload, cfg)
+    if err:
+        return err
+
+    matched = _filter(collected, cfg)
+
+    # 1) 알림 미리보기 (전송 없음)
+    notifications = []
+    for n in build_notifiers(cfg):
+        notifications.append({
+            "notifier": n.name,
+            "label": getattr(n, "channel_label", n.name),
+            "message": n.render(matched),
+        })
+
+    # 2) 자동 대응 미리보기 (강제 dry-run — 실제 AWS 변경 없음)
+    preview_cfg = copy.copy(cfg)
+    preview_cfg.remediation_enabled = True
+    preview_cfg.remediation_dry_run = True
+    remediators = build_remediators(preview_cfg)
+    remediations = []
+    for f in matched:
+        for r in remediators:
+            try:
+                if not r.can_handle(f):
+                    continue
+                result = r.remediate(f)  # dry-run이라 _plan만 실행
+            except Exception as e:  # noqa: BLE001 - 미리보기이므로 오류도 표시
+                remediations.append({
+                    "remediator": r.name, "finding_id": f.id,
+                    "status": "ERROR", "message": str(e), "actions": [],
+                })
+                continue
+            remediations.append(result.to_dict())
+
+    return {
+        "ok": True,
+        "total": len(collected),
+        "matched": len(matched),
+        "filtered_out": len(collected) - len(matched),
+        "min_severity": cfg.min_severity.name,
+        "all_findings": [f.to_dict() for f in collected],
+        "matched_findings": [f.to_dict() for f in matched],
+        "notifications": notifications,
+        "remediations": remediations,
     }

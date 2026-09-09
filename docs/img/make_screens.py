@@ -236,9 +236,70 @@ def screen_event():
     write("04_event.svg", body)
 
 
+def _section_label(x, y, s):
+    return text(x, y, s, fill=MUTED, size=12, weight="600")
+
+
+def right_panel_pipeline(summary, finding, notif, remediation):
+    """전체 파이프라인 결과: finding + 알림 미리보기 + 대응 dry-run 계획."""
+    x, y, w = 560, 120, 516
+    out = [rect(x, y, w, 620, PANEL, rx=10, stroke=BORDER)]
+    out.append(summary_line(x + 18, y + 28, *summary))
+    # Findings
+    out.append(_section_label(x + 18, y + 54, "FINDINGS"))
+    out.append(finding_card(x + 16, y + 64, w - 32, finding))
+    # 알림 미리보기
+    ny = y + 158
+    out.append(_section_label(x + 18, ny, "📣 알림 미리보기 (전송 안 함)"))
+    out.append(rect(x + 16, ny + 10, w - 32, 96, PANEL2, rx=8, stroke=BORDER))
+    out.append(rect(x + 16, ny + 10, w - 32, 26, PANEL, rx=8, stroke=BORDER))
+    out.append(text(x + 28, ny + 27, notif["label"], size=12.5, weight="600"))
+    ly = ny + 52
+    for line in notif["lines"]:
+        out.append(text(x + 28, ly, line, fill=TEXT, size=11.5, family=MONO))
+        ly += 16
+    # 자동 대응 계획
+    ry = ny + 122
+    out.append(_section_label(x + 18, ry, "🛠️ 자동 대응 dry-run 계획 (실제 변경 안 함)"))
+    out.append(rect(x + 16, ry + 10, w - 32, 92, PANEL2, rx=8, stroke=BORDER))
+    # 상태 뱃지 + remediator 이름 + api
+    out.append(rect(x + 28, ry + 22, 68, 20, "#1e3a8a", rx=6))
+    out.append(text(x + 62, ry + 36, "DRY_RUN", fill="#bfdbfe", size=11, weight="bold", anchor="middle"))
+    out.append(text(x + 104, ry + 37, remediation["remediator"], size=13, weight="600"))
+    out.append(text(x + 104 + len(remediation["remediator"]) * 8 + 12, ry + 37,
+                    remediation["api"], fill=ACCENT, size=12, family=MONO))
+    out.append(text(x + 28, ry + 60, remediation["desc"], fill=MUTED, size=12))
+    out.append(text(x + 28, ry + 80, remediation["params"], fill=MUTED, size=11, family=MONO))
+    return "".join(out)
+
+
+def _write_tall(name, body):
+    path = os.path.join(os.path.dirname(__file__), name)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(svg(body, h=760))
+    print("wrote", path)
+
+
 if __name__ == "__main__":
     screen_initial()
     screen_fortinet()
     screen_filter()
     screen_event()
+    # 파이프라인 화면은 세로가 길어 별도 높이로 저장
+    left = header() + left_panel("event", "auto", "MEDIUM",
+                                 ['{', '  "source": "aws.guardduty",',
+                                  '  "detail-type": "GuardDuty Finding",',
+                                  '  "detail": { "Type": ".../SSHBruteForce",',
+                                  '    "Service": {...RemoteIp: 203.0.113.5},', '    ... }', '}'],
+                                 False, EV_CHIPS)
+    notif = {"label": "표준 출력(stdout)",
+             "lines": ["1건 HIGH=1", "", "🟠 [HIGH] SSH brute force against i-0abc",
+                       "    (source=guardduty, region=ap-northeast-2, resource=i-0abc)"]}
+    remediation = {"remediator": "nacl_block_ip", "api": "ec2:CreateNetworkAclEntry",
+                   "desc": "원격 IP 203.0.113.5/32를 NACL deny 규칙으로 인바운드 차단",
+                   "params": '{"RuleAction": "deny", "CidrBlock": "203.0.113.5/32", ...}'}
+    # 좌측 카드 하단을 파이프라인 화면 높이에 맞춰 살짝 연장(시각적 정렬)
+    left_ext = rect(24, 570, 520, 150, PANEL, rx=10, stroke=BORDER)
+    _write_tall("05_pipeline.svg",
+                left_ext + left + right_panel_pipeline((1, 1, 0, "MEDIUM"), gd_finding, notif, remediation))
     print("done")

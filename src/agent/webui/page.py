@@ -9,39 +9,42 @@ INDEX_HTML = r"""<!DOCTYPE html>
 <style>
   :root {
     --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --text:#e2e8f0; --muted:#94a3b8;
-    --accent:#38bdf8; --border:#334155;
+    --accent:#38bdf8; --border:#334155; --green:#22c55e;
     --crit:#ef4444; --high:#f97316; --med:#eab308; --low:#3b82f6; --info:#64748b;
   }
   * { box-sizing:border-box; }
   body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
          background:var(--bg); color:var(--text); }
   header { padding:18px 24px; border-bottom:1px solid var(--border); display:flex;
-           align-items:center; gap:12px; }
+           align-items:center; gap:12px; flex-wrap:wrap; }
   header h1 { font-size:18px; margin:0; font-weight:600; }
   header .sub { color:var(--muted); font-size:13px; }
   main { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:20px 24px; }
-  @media (max-width: 960px){ main{ grid-template-columns:1fr; } }
+  @media (max-width: 1000px){ main{ grid-template-columns:1fr; } }
   .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; }
-  .tabs { display:flex; gap:8px; margin-bottom:12px; }
+  .tabs { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
   .tab { padding:7px 14px; border-radius:8px; cursor:pointer; background:var(--panel2);
          color:var(--muted); border:1px solid var(--border); font-size:13px; }
   .tab.active { color:var(--text); border-color:var(--accent); }
   label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
-  textarea { width:100%; min-height:220px; background:#0b1220; color:var(--text);
+  textarea { width:100%; min-height:200px; background:#0b1220; color:var(--text);
              border:1px solid var(--border); border-radius:8px; padding:10px; font-family:ui-monospace,Menlo,monospace;
              font-size:12.5px; resize:vertical; }
   select, .btn { background:var(--panel2); color:var(--text); border:1px solid var(--border);
                  border-radius:8px; padding:8px 12px; font-size:13px; cursor:pointer; }
   .btn.primary { background:var(--accent); color:#04283b; border-color:var(--accent); font-weight:600; }
-  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px; }
+  .row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-top:12px; }
   .samples { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
   .chip { font-size:11.5px; padding:4px 9px; border-radius:999px; background:var(--panel2);
           border:1px solid var(--border); color:var(--muted); cursor:pointer; }
   .chip:hover { color:var(--text); border-color:var(--accent); }
+  .toggle { display:flex; gap:0; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .toggle div { padding:8px 12px; font-size:12.5px; cursor:pointer; color:var(--muted); background:var(--panel2); }
+  .toggle div.on { background:var(--accent); color:#04283b; font-weight:600; }
   .summary { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:12px; font-size:13px; }
   .summary b { color:var(--accent); }
-  .finding { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px;
-             background:var(--panel2); }
+  h3.sec { font-size:13px; color:var(--muted); margin:16px 0 8px; text-transform:uppercase; letter-spacing:.04em; }
+  .finding { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:var(--panel2); }
   .finding.dim { opacity:.5; }
   .finding .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .sev { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; color:#0b1220; }
@@ -50,15 +53,28 @@ INDEX_HTML = r"""<!DOCTYPE html>
   .finding .title { font-weight:600; font-size:14px; }
   .finding .meta { color:var(--muted); font-size:12px; margin-top:4px; word-break:break-all; }
   .badge { font-size:11px; color:var(--muted); border:1px solid var(--border); padding:1px 7px; border-radius:6px; }
+  .notif { border:1px solid var(--border); border-radius:8px; margin-bottom:8px; background:var(--panel2); }
+  .notif .hd { padding:8px 12px; font-size:13px; font-weight:600; border-bottom:1px solid var(--border); }
+  .notif pre { margin:0; padding:10px 12px; font-family:ui-monospace,Menlo,monospace; font-size:12px;
+               white-space:pre-wrap; word-break:break-all; color:var(--text); max-height:220px; overflow:auto; }
+  .rem { border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:var(--panel2); }
+  .rem .top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .st { font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; }
+  .st.DRY_RUN{background:#1e3a8a;color:#bfdbfe;} .st.APPLIED{background:var(--green);color:#04283b;}
+  .st.SKIPPED,.st.NO_ACTION{background:var(--panel);color:var(--muted);border:1px solid var(--border);}
+  .st.FAILED,.st.ERROR{background:var(--crit);color:#fff;}
+  .rem code { color:var(--accent); font-size:12px; }
+  .rem .params { color:var(--muted); font-size:11.5px; margin-top:4px; font-family:ui-monospace,Menlo,monospace; word-break:break-all; }
   .empty { color:var(--muted); font-size:13px; padding:20px; text-align:center; }
   .err { color:var(--crit); font-size:13px; margin-top:10px; white-space:pre-wrap; }
   code { color:var(--accent); }
+  .hint { color:var(--muted); font-size:11.5px; margin-top:6px; }
 </style>
 </head>
 <body>
 <header>
   <h1>🛡️ AWS Security Agent</h1>
-  <span class="sub">검증 콘솔 — 로그/이벤트를 붙여넣어 파싱·정규화·필터 결과를 확인</span>
+  <span class="sub">검증 콘솔 — 로그/이벤트를 붙여넣어 전체 파이프라인(정규화·필터·알림·자동대응)을 확인</span>
 </header>
 <main>
   <section class="card">
@@ -83,12 +99,20 @@ INDEX_HTML = r"""<!DOCTYPE html>
 
     <div class="row">
       <div>
+        <label style="margin:0">모드</label>
+        <div class="toggle" id="mode-toggle">
+          <div data-mode="parse" class="on" onclick="setMode('parse')">파싱·필터만</div>
+          <div data-mode="pipeline" onclick="setMode('pipeline')">전체 파이프라인</div>
+        </div>
+      </div>
+      <div>
         <label style="margin:0">최소 심각도(필터)</label>
         <select id="min-sev"></select>
       </div>
-      <button class="btn primary" style="align-self:flex-end" onclick="analyze()">분석</button>
-      <button class="btn" style="align-self:flex-end" onclick="clearAll()">지우기</button>
+      <button class="btn primary" onclick="analyze()">분석</button>
+      <button class="btn" onclick="clearAll()">지우기</button>
     </div>
+    <div class="hint">전체 파이프라인 모드는 <b>알림 메시지 미리보기</b>와 <b>자동 대응 dry-run 계획</b>까지 보여줍니다(실제 전송·변경 없음).</div>
     <div class="err" id="err"></div>
   </section>
 
@@ -100,47 +124,65 @@ INDEX_HTML = r"""<!DOCTYPE html>
 
 <script>
 const FW_SAMPLES = {
-  "Fortinet (IPS/alert)": 'devname="FGT60F" logid="0419016384" type="utm" subtype="ips" level="alert" srcip=203.0.113.5 dstip=10.0.0.7 action="dropped" attack="Backdoor.Double.Door"',
-  "Palo Alto (THREAT)": '1,2026/09/09 00:00:00,001901000001,THREAT,vulnerability,2049,2026/09/09 00:00:00,203.0.113.9,10.0.0.20,0.0.0.0,0.0.0.0,rule1,,,web-browsing,vsys1,trust,untrust,eth1/1,eth1/2,fwd,2026/09/09 00:00:00,12345,1,80,443,0,0,0x0,tcp,reset-both,"evil.com/x",SQL-Injection(9999),any,high,client-to-server',
+  "Fortinet IPS(alert)": 'devname="FGT60F" logid="0419016384" type="utm" subtype="ips" level="alert" srcip=203.0.113.5 dstip=10.0.0.7 action="dropped" attack="Backdoor.Double.Door"',
+  "Fortinet 차단(traffic)": 'devname="FGT" logid="0000000013" type="traffic" subtype="forward" level="notice" srcip=198.51.100.4 dstip=10.0.0.9 action="deny" service="HTTPS"',
+  "Palo Alto THREAT": '1,2026/09/09 00:00:00,001901000001,THREAT,vulnerability,2049,2026/09/09 00:00:00,203.0.113.9,10.0.0.20,0.0.0.0,0.0.0.0,rule1,,,web-browsing,vsys1,trust,untrust,eth1/1,eth1/2,fwd,2026/09/09 00:00:00,12345,1,80,443,0,0,0x0,tcp,reset-both,"evil.com/x",SQL-Injection(9999),any,high,client-to-server',
+  "Palo Alto TRAFFIC": '1,2026/09/09 00:00:00,001901000001,TRAFFIC,end,2049,2026/09/09 00:00:00,192.0.2.10,10.0.0.5,0.0.0.0,0.0.0.0,rule1,,,ssl,vsys1,trust,untrust,eth1/1,eth1/2,fwd,2026/09/09,111,1,443,50000,0,0,0x0,tcp,allow',
   "Check Point": 'product="SmartDefense" action="Drop" src=203.0.113.11 dst=10.0.0.30 proto=tcp service=445 attack="Port Scan" severity="High"',
-  "CEF (공통)": 'CEF:0|Palo Alto Networks|PAN-OS|10.1|spyware|Spyware Detected|8|src=203.0.113.20 dst=10.0.0.40 act=blocked'
+  "CEF(공통)": 'CEF:0|Palo Alto Networks|PAN-OS|10.1|spyware|Spyware Detected|8|src=203.0.113.20 dst=10.0.0.40 act=blocked',
+  "여러 줄 혼합": 'devname="FGT" logid="1" type="utm" subtype="ips" level="alert" srcip=203.0.113.5 attack="Backdoor"\nproduct="SmartDefense" action="Drop" src=203.0.113.11 attack="Port Scan" severity="High"\nCEF:0|Fortinet|FortiGate|7.0|1|Malware|9|src=198.51.100.7 act=blocked',
 };
 const EV_SAMPLES = {
-  "GuardDuty Finding": {
+  "GuardDuty SSH BruteForce (→NACL 차단)": {
     "source":"aws.guardduty","detail-type":"GuardDuty Finding",
-    "detail":{"Id":"gd-1","Type":"UnauthorizedAccess:EC2/SSHBruteForce","Title":"SSH brute force","Description":"i-0abc SSH probe","Severity":8.0,"AccountId":"111122223333","Region":"ap-northeast-2","Resource":{"ResourceType":"Instance","InstanceDetails":{"InstanceId":"i-0abc"}}}
+    "detail":{"Id":"gd-ssh","Type":"UnauthorizedAccess:EC2/SSHBruteForce","Title":"SSH brute force against i-0abc","Description":"EC2 i-0abc SSH probe","Severity":8.0,"AccountId":"111122223333","Region":"ap-northeast-2",
+      "Service":{"Action":{"NetworkConnectionAction":{"RemoteIpDetails":{"IpAddressV4":"203.0.113.5"}}}},
+      "Resource":{"ResourceType":"Instance","InstanceDetails":{"InstanceId":"i-0abc","NetworkInterfaces":[{"SubnetId":"subnet-1"}]}}}
   },
-  "Security Hub (S3 public)": {
+  "GuardDuty EC2 백도어 (→EC2 격리*)": {
+    "source":"aws.guardduty","detail-type":"GuardDuty Finding",
+    "detail":{"Id":"gd-c2","Type":"Backdoor:EC2/C&CActivity.B","Title":"C2 activity","Severity":8.5,"AccountId":"111122223333","Region":"ap-northeast-2",
+      "Resource":{"ResourceType":"Instance","InstanceDetails":{"InstanceId":"i-0def","NetworkInterfaces":[{"SecurityGroups":[{"GroupId":"sg-web"}]}]}}}
+  },
+  "GuardDuty IAM 자격증명 (→키 비활성화*)": {
+    "source":"aws.guardduty","detail-type":"GuardDuty Finding",
+    "detail":{"Id":"gd-iam","Type":"UnauthorizedAccess:IAMUser/InstanceCredentialExfiltration.OutsideAWS","Title":"Creds exfil","Severity":8.0,"AccountId":"111122223333","Region":"ap-northeast-2",
+      "Resource":{"AccessKeyDetails":{"AccessKeyId":"AKIAEXAMPLE12345","UserName":"alice","UserType":"IAMUser"}}}
+  },
+  "Security Hub S3 public (→S3 차단*)": {
     "source":"aws.securityhub","detail-type":"Security Hub Findings - Imported",
-    "detail":{"findings":[{"Id":"sh-1","Title":"S3 bucket is public","Description":"public read","Severity":{"Label":"CRITICAL","Normalized":90},"Types":["Effects/Data Exposure"],"AwsAccountId":"111122223333","Region":"ap-northeast-2","Resources":[{"Type":"AwsS3Bucket","Id":"arn:aws:s3:::my-bucket","Region":"ap-northeast-2"}]}]}
-  }
+    "detail":{"findings":[{"Id":"sh-s3","Title":"S3 bucket is public","Description":"public read","Severity":{"Label":"CRITICAL","Normalized":90},"Types":["Effects/Data Exposure"],"AwsAccountId":"111122223333","Region":"ap-northeast-2","Resources":[{"Type":"AwsS3Bucket","Id":"arn:aws:s3:::my-bucket","Region":"ap-northeast-2"}]}]}
+  },
+  "Access Analyzer 외부공유": {
+    "source":"aws.access-analyzer","detail-type":"Access Analyzer Finding",
+    "detail":{"id":"aa-1","resourceType":"AWS::S3::Bucket","resource":"arn:aws:s3:::exposed","isPublic":true,"status":"ACTIVE","action":["s3:GetObject"],"principal":{"AWS":"*"}}
+  },
 };
 
 let META = {vendors:["auto"], severities:["INFORMATIONAL","LOW","MEDIUM","HIGH","CRITICAL"]};
+let currentTab = 'firewall';
+let currentMode = 'parse';
 
 async function loadMeta(){
-  try {
-    const r = await fetch('/api/meta'); META = await r.json();
-  } catch(e) {}
-  const v = document.getElementById('vendor');
-  v.innerHTML = META.vendors.map(x=>`<option value="${x}">${x}</option>`).join('');
-  const ms = document.getElementById('min-sev');
-  ms.innerHTML = META.severities.map(x=>`<option value="${x}" ${x==='MEDIUM'?'selected':''}>${x}</option>`).join('');
-  // 샘플 칩
-  document.getElementById('fw-samples').innerHTML =
-    Object.keys(FW_SAMPLES).map(k=>`<span class="chip" onclick="loadFw('${k.replace(/'/g,"\\'")}')">${k}</span>`).join('');
-  document.getElementById('ev-samples').innerHTML =
-    Object.keys(EV_SAMPLES).map(k=>`<span class="chip" onclick="loadEv('${k.replace(/'/g,"\\'")}')">${k}</span>`).join('');
+  try { META = await (await fetch('/api/meta')).json(); } catch(e) {}
+  document.getElementById('vendor').innerHTML = META.vendors.map(x=>`<option value="${x}">${x}</option>`).join('');
+  document.getElementById('min-sev').innerHTML = META.severities.map(x=>`<option value="${x}" ${x==='MEDIUM'?'selected':''}>${x}</option>`).join('');
+  document.getElementById('fw-samples').innerHTML = Object.keys(FW_SAMPLES).map(k=>`<span class="chip" onclick="loadFw('${jsEsc(k)}')">${esc(k)}</span>`).join('');
+  document.getElementById('ev-samples').innerHTML = Object.keys(EV_SAMPLES).map(k=>`<span class="chip" onclick="loadEv('${jsEsc(k)}')">${esc(k)}</span>`).join('');
 }
+function jsEsc(s){ return s.replace(/\\/g,"\\\\").replace(/'/g,"\\'"); }
 function loadFw(k){ document.getElementById('fw-input').value = FW_SAMPLES[k]; }
 function loadEv(k){ document.getElementById('ev-input').value = JSON.stringify(EV_SAMPLES[k], null, 2); }
 
-let currentTab = 'firewall';
 function switchTab(t){
   currentTab = t;
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
   document.getElementById('pane-firewall').style.display = t==='firewall'?'block':'none';
   document.getElementById('pane-event').style.display = t==='event'?'block':'none';
+}
+function setMode(m){
+  currentMode = m;
+  document.querySelectorAll('#mode-toggle div').forEach(el=>el.classList.toggle('on', el.dataset.mode===m));
 }
 function clearAll(){
   document.getElementById('fw-input').value='';
@@ -154,7 +196,12 @@ async function analyze(){
   document.getElementById('err').textContent='';
   const minSev = document.getElementById('min-sev').value;
   let url, body;
-  if (currentTab==='firewall'){
+  if (currentMode === 'pipeline'){
+    url='/api/pipeline';
+    body={ kind: currentTab, min_severity: minSev };
+    if (currentTab==='firewall'){ body.raw=document.getElementById('fw-input').value; body.vendor=document.getElementById('vendor').value; }
+    else { body.event=document.getElementById('ev-input').value; }
+  } else if (currentTab==='firewall'){
     url='/api/firewall';
     body={ raw: document.getElementById('fw-input').value, vendor: document.getElementById('vendor').value, min_severity: minSev };
   } else {
@@ -162,8 +209,7 @@ async function analyze(){
     body={ event: document.getElementById('ev-input').value, min_severity: minSev };
   }
   try {
-    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    const data = await r.json();
+    const data = await (await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})).json();
     render(data);
   } catch(e){ document.getElementById('err').textContent='요청 실패: '+e; }
 }
@@ -176,27 +222,45 @@ function render(data){
     document.getElementById('results').innerHTML='';
     return;
   }
-  document.getElementById('summary').innerHTML =
-    `<span>정규화: <b>${data.total}</b>건</span>`+
+  let sum = `<span>정규화: <b>${data.total}</b>건</span>`+
     `<span>필터 통과: <b>${data.matched}</b>건</span>`+
     `<span>제외: <b>${data.filtered_out}</b>건</span>`+
     `<span>최소 심각도: <b>${data.min_severity}</b></span>`;
+  if (data.remediations) sum += `<span>대응 계획: <b>${data.remediations.length}</b>건</span>`;
+  document.getElementById('summary').innerHTML = sum;
 
   const matchedIds = new Set(data.matched_findings.map(f=>f.id));
-  const rows = data.all_findings.map(f=>{
+  let html = '<h3 class="sec">Findings</h3>';
+  html += data.all_findings.map(f=>{
     const passed = matchedIds.has(f.id);
     const res = (f.resources&&f.resources[0]&&f.resources[0].id)||'-';
     return `<div class="finding ${passed?'':'dim'}">
-      <div class="top">
-        <span class="sev ${f.severity}">${f.severity}</span>
-        <span class="title">${esc(f.title)}</span>
-        ${passed?'':'<span class="badge">필터 제외</span>'}
-      </div>
+      <div class="top"><span class="sev ${f.severity}">${f.severity}</span>
+        <span class="title">${esc(f.title)}</span>${passed?'':'<span class="badge">필터 제외</span>'}</div>
       <div class="meta">source: <code>${esc(f.source)}</code> · type: ${esc(f.finding_type||'-')}<br>
         resource: ${esc(res)} · account: ${esc(f.account_id||'-')} · region: ${esc(f.region||'-')}</div>
     </div>`;
-  }).join('');
-  document.getElementById('results').innerHTML = rows || '<div class="empty">정규화된 finding이 없습니다. 입력을 확인하세요.</div>';
+  }).join('') || '<div class="empty">정규화된 finding이 없습니다.</div>';
+
+  // 전체 파이프라인 모드: 알림 + 대응
+  if (data.notifications){
+    html += '<h3 class="sec">📣 알림 미리보기 (전송 안 함)</h3>';
+    html += data.notifications.map(n=>`<div class="notif"><div class="hd">${esc(n.label)}</div><pre>${esc(n.message)}</pre></div>`).join('')
+      || '<div class="empty">활성 알림 채널이 없습니다.</div>';
+  }
+  if (data.remediations){
+    html += '<h3 class="sec">🛠️ 자동 대응 dry-run 계획 (실제 변경 안 함)</h3>';
+    html += data.remediations.length ? data.remediations.map(r=>{
+      const a = (r.actions&&r.actions[0])||{};
+      const params = a.params? JSON.stringify(a.params) : '';
+      return `<div class="rem"><div class="top"><span class="st ${r.status}">${r.status}</span>
+        <span><b>${esc(r.remediator)}</b></span>${a.api?`<code>${esc(a.api)}</code>`:''}</div>
+        ${a.description?`<div class="meta">${esc(a.description)}</div>`:''}
+        ${params?`<div class="params">${esc(params)}</div>`:''}
+        ${r.message?`<div class="meta">${esc(r.message)}</div>`:''}</div>`;
+    }).join('') : '<div class="empty">유발된 자동 대응이 없습니다. (대응 대상 finding_type이 아니거나 대상 리소스 정보 부족)</div>';
+  }
+  document.getElementById('results').innerHTML = html;
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 

@@ -18,10 +18,29 @@ logger = logging.getLogger(__name__)
 
 class SlackNotifier(BaseNotifier):
     name = "slack"
+    channel_label = "Slack (Incoming Webhook)"
 
     def __init__(self, webhook_url: str, timeout: int = 10) -> None:
         self.webhook_url = webhook_url
         self.timeout = timeout
+
+    def render(self, findings: list[SecurityFinding]) -> str:
+        """실제 Slack에 표시될 내용을 텍스트로 미리보기(전송하지 않음)."""
+        if not findings:
+            return "(전송할 finding 없음)"
+        lines = ["🛡️ AWS 보안 finding 감지", f"요약: {self.summarize(findings)}", ""]
+        top = sorted(findings, key=lambda x: x.severity, reverse=True)[:20]
+        for f in top:
+            emoji = SEVERITY_EMOJI.get(f.severity, "")
+            res = f.resources[0].id if f.resources and f.resources[0].id else "-"
+            lines.append(f"{emoji} [{f.severity.name}] {f.title}")
+            lines.append(f"    source: {f.source} | account: {f.account_id or '-'} | region: {f.region or '-'}")
+            lines.append(f"    resource: {res}")
+            if f.description:
+                lines.append(f"    {f.description[:200]}")
+        if len(findings) > len(top):
+            lines.append(f"...외 {len(findings) - len(top)}건 더 있음")
+        return "\n".join(lines)
 
     def notify(self, findings: list[SecurityFinding]) -> None:
         if not findings:

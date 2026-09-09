@@ -94,11 +94,14 @@ PYTHONPATH=src python -m agent.cli --lookback-minutes 60
 
 ## 웹 검증 콘솔 (배포 없이 확인)
 
-로그/이벤트를 브라우저에 붙여넣어 파싱→정규화→필터 결과를 즉시 확인 (AWS 자격증명 불필요):
+로그/이벤트를 브라우저에 붙여넣어 **전체 파이프라인(정규화→필터→알림→자동대응)** 을 즉시 확인 (AWS 자격증명 불필요):
 
 ```bash
 PYTHONPATH=src python -m agent.webui.server   # http://127.0.0.1:8080
 ```
+
+- **파싱·필터만** 모드: 정규화된 finding과 심각도 필터 통과/제외 확인
+- **전체 파이프라인** 모드: 위에 더해 **알림 메시지 미리보기**(Slack/Email/stdout)와 **자동 대응 dry-run 계획**(NACL/SG/S3/WAF/IAM/EC2)까지 — 실제 전송·변경은 없음
 
 자세한 사용법은 [docs/WEBUI.md](docs/WEBUI.md).
 
