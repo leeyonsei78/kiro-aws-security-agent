@@ -6,6 +6,8 @@
 """
 
 import boto3
+import pytest
+from botocore.exceptions import ClientError
 from moto import mock_aws
 
 from agent.models import SecurityFinding, Severity, Resource
@@ -14,6 +16,14 @@ from agent.remediators.iam_disable_key import IamDisableKeyRemediator
 from agent.collectors.access_analyzer import AccessAnalyzerCollector
 
 REGION = "us-east-1"
+
+
+def _skip_if_not_implemented(exc: ClientError):
+    """moto가 아직 구현하지 않은 API면 테스트를 skip (코드 결함 아님)."""
+    msg = str(exc)
+    if "Not yet implemented" in msg or "501" in msg:
+        pytest.skip(f"moto가 이 API를 아직 지원하지 않음: {msg}")
+    raise exc
 
 
 @mock_aws
@@ -71,16 +81,23 @@ def test_iam_disable_key_apply_real():
 @mock_aws
 def test_access_analyzer_collect_empty_real():
     # analyzer가 없을 때 collect가 예외 없이 빈 결과를 내는지(graceful) 검증
+    # moto가 accessanalyzer를 지원하지 않으면 skip.
     collector = AccessAnalyzerCollector(region=REGION)
-    findings = list(collector.collect(since=None))
+    try:
+        findings = list(collector.collect(since=None))
+    except ClientError as e:
+        _skip_if_not_implemented(e)
     assert findings == []
 
 
 @mock_aws
 def test_access_analyzer_collect_with_analyzer_real():
     client = boto3.client("accessanalyzer", region_name=REGION)
-    client.create_analyzer(analyzerName="acct-analyzer", type="ACCOUNT")
-    collector = AccessAnalyzerCollector(region=REGION)
-    # findings가 없어도 예외 없이 순회되어야 함 (analyzer는 존재)
-    findings = list(collector.collect(since=None))
+    try:
+        client.create_analyzer(analyzerName="acct-analyzer", type="ACCOUNT")
+        collector = AccessAnalyzerCollector(region=REGION)
+        # findings가 없어도 예외 없이 순회되어야 함 (analyzer는 존재)
+        findings = list(collector.collect(since=None))
+    except ClientError as e:
+        _skip_if_not_implemented(e)
     assert isinstance(findings, list)
