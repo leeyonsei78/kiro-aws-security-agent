@@ -65,6 +65,19 @@ variable "enable_firewall_endpoint" {
   default     = false
 }
 
+variable "firewall_api_key" {
+  description = "방화벽 webhook 인증용 API 키(헤더 X-Api-Key). 방화벽 엔드포인트 사용 시 권장"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "firewall_allowed_ips" {
+  description = "방화벽 webhook 허용 소스 IP/CIDR(쉼표구분). 예: 203.0.113.10,198.51.100.0/24"
+  type        = string
+  default     = ""
+}
+
 variable "enable_remediation_policy" {
   description = "대응(쓰기) IAM 권한 부여 여부 (실제 적용 시 true)"
   type        = bool

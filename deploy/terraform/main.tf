@@ -129,8 +129,10 @@ resource "aws_lambda_function" "agent" {
       LOOKBACK_MINUTES    = var.lookback_minutes
       SLACK_WEBHOOK_URL   = var.slack_webhook_url
       SNS_TOPIC_ARN       = aws_sns_topic.alerts.arn
-      REMEDIATION_ENABLED = var.remediation_enabled
-      REMEDIATION_DRY_RUN = var.remediation_dry_run
+      REMEDIATION_ENABLED  = var.remediation_enabled
+      REMEDIATION_DRY_RUN  = var.remediation_dry_run
+      FIREWALL_API_KEY     = var.firewall_api_key
+      FIREWALL_ALLOWED_IPS = var.firewall_allowed_ips
     }
   }
 }

@@ -47,6 +47,15 @@ Parameters:
     Default: "false"
     AllowedValues: ["true", "false"]
     Description: 써드파티 방화벽 webhook용 HTTP API 생성 여부
+  FirewallApiKey:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: 방화벽 webhook 인증용 API 키(헤더 X-Api-Key). 방화벽 엔드포인트 사용 시 권장
+  FirewallAllowedIps:
+    Type: String
+    Default: ""
+    Description: 방화벽 webhook 허용 소스 IP/CIDR(쉼표구분). 예 203.0.113.10,198.51.100.0/24
   EnableRemediationPolicy:
     Type: String
     Default: "false"
@@ -94,6 +103,8 @@ Resources:
           SNS_TOPIC_ARN: !Ref AlertsTopic
           REMEDIATION_ENABLED: !Ref RemediationEnabled
           REMEDIATION_DRY_RUN: !Ref RemediationDryRun
+          FIREWALL_API_KEY: !Ref FirewallApiKey
+          FIREWALL_ALLOWED_IPS: !Ref FirewallAllowedIps
       Policies:
         # --- 읽기 전용 수집 권한 (iam/agent-policy.json 과 동일 범위) ---
         - Statement:

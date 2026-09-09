@@ -22,6 +22,8 @@
 | `FLOWLOGS_REJECT_THRESHOLD` | `100` | 소스 IP당 REJECT 횟수 임계값(초과 시 finding) |
 | `FLOWLOGS_DISTINCT_PORTS_THRESHOLD` | `20` | 소스 IP당 고유 대상 포트 수 임계값(포트 스캔 판단) |
 | `QUARANTINE_SG_ID` | - | `ec2_quarantine` remediator가 교체할 격리 SG ID(사용 시 필수) |
+| `FIREWALL_API_KEY` | - | 방화벽 webhook 인증용 API 키. 요청 헤더 `X-Api-Key`와 일치해야 통과 |
+| `FIREWALL_ALLOWED_IPS` | - | 방화벽 webhook 허용 소스 IP/CIDR(쉼표구분) |
 
 ## 사용 가능한 collector / notifier / remediator
 
@@ -56,7 +58,26 @@ AWS 폴링이 아니라 **API Gateway → Lambda** HTTP 엔드포인트로 받�
 - **지원 벤더**: `fortinet`(key=value), `paloalto`(CSV), `checkpoint`(key=value), `cef`(공통 fallback).
 - **배포**: 이 collector는 스케줄/EventBridge가 아니라 HTTP 트리거로 동작합니다. handler가 API Gateway 이벤트(`httpMethod` 또는 `requestContext.http`)를 자동 인식해 방화벽 경로로 라우팅합니다.
 
-> 보안 권장: API Gateway에 인증(API 키/mTLS/IP 허용목록)을 걸고, 방화벽 장비에서만 접근하도록 제한하세요. 새 벤더는 `firewall/`에 파서를 추가하면 됩니다([EXTENDING.md](EXTENDING.md) 참고).
+### webhook 인증 (권장)
+
+HTTP 엔드포인트는 공개 노출될 수 있으므로 **애플리케이션 레벨 인증**을 내장했습니다. `handler`가 로그를 파싱하기 **전에** 검사합니다.
+
+- **API 키**: `FIREWALL_API_KEY`를 설정하면, 요청 헤더 `X-Api-Key`가 일치해야 통과(불일치 시 `401`). 상수 시간 비교로 타이밍 공격을 방지합니다.
+- **IP 허용목록**: `FIREWALL_ALLOWED_IPS`(IP 또는 CIDR, 쉼표구분)를 설정하면 소스 IP가 목록에 있어야 통과(아니면 `403`). API Gateway v1(REST)/v2(HTTP) 이벤트를 모두 인식합니다.
+- 둘 다 설정하면 **둘 다 통과**해야 합니다. 둘 다 미설정이면 인증을 적용하지 않고(기존 동작 유지) **경고 로그**를 남깁니다.
+
+방화벽 장비 설정 예 (헤더에 키 추가):
+```
+FortiGate/PAN-OS webhook 설정에서 커스텀 헤더:
+  X-Api-Key: <FIREWALL_API_KEY 값>
+```
+
+```bash
+export FIREWALL_API_KEY="아무도-모르는-긴-랜덤-문자열"
+export FIREWALL_ALLOWED_IPS="203.0.113.10,198.51.100.0/24"   # 방화벽 장비 IP 대역
+```
+
+> 심층 방어를 위해 API Gateway 자체 인증(API 키/mTLS/WAF/IP 정책)과 함께 사용하는 것을 권장합니다. 새 벤더는 `firewall/`에 파서를 추가하면 됩니다([EXTENDING.md](EXTENDING.md) 참고).
 
 ## 자동 대응 안전 수칙
 

@@ -17,6 +17,7 @@ import logging
 from .config import load_config
 from .core import run_event, run_firewall, run_poll
 from .registry import EVENT_TYPE_TO_COLLECTOR
+from .webhook_auth import authorize
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -77,11 +78,11 @@ def _parse_firewall_payload(event: dict) -> dict:
     return {"firewall_raw": ""}
 
 
-def _http_response(result: dict) -> dict:
+def _http_response(status: int, body: dict) -> dict:
     return {
-        "statusCode": 200,
+        "statusCode": status,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps({"matched": result.get("matched", 0)}),
+        "body": json.dumps(body),
     }
 
 
@@ -90,10 +91,15 @@ def lambda_handler(event: dict, context=None) -> dict:  # noqa: ANN001
     logger.info("event received: %s", json.dumps(event)[:1000])
 
     if _is_http_event(event):
+        # 파싱 전에 인증 먼저 검사 (인증 실패 시 body를 건드리지 않음)
+        auth = authorize(event, cfg)
+        if not auth.ok:
+            logger.warning("firewall webhook 인증 실패: %s (status=%s)", auth.reason, auth.status)
+            return _http_response(auth.status, {"error": auth.reason})
         payload = _parse_firewall_payload(event)
         result = run_firewall(payload, cfg)
         logger.info("firewall result: matched=%s", result.get("matched"))
-        return _http_response(result)
+        return _http_response(200, {"matched": result.get("matched", 0)})
 
     if _is_realtime_finding_event(event):
         result = run_event(event, cfg)

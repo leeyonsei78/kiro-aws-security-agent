@@ -72,6 +72,18 @@ class Config:
     # EC2 격리 remediator 대상 (ec2_quarantine 사용 시 필수)
     quarantine_sg_id: str = field(default_factory=lambda: os.getenv("QUARANTINE_SG_ID", ""))
 
+    # --- 방화벽 webhook 인증 (firewall_syslog HTTP 엔드포인트 보호) ---
+    # API 키: 요청 헤더 X-Api-Key 값과 일치해야 통과. 미설정 시 키 검사 안 함.
+    firewall_api_key: str = field(default_factory=lambda: os.getenv("FIREWALL_API_KEY", ""))
+    # IP 허용목록(쉼표구분, IP 또는 CIDR). 미설정 시 IP 검사 안 함.
+    firewall_allowed_ips: list[str] = field(
+        default_factory=lambda: _csv(os.getenv("FIREWALL_ALLOWED_IPS"))
+    )
+
+    @property
+    def firewall_auth_configured(self) -> bool:
+        return bool(self.firewall_api_key or self.firewall_allowed_ips)
+
     def resolved_notifiers(self) -> list[str]:
         """명시 설정이 없으면 자격정보가 채워진 채널을 자동 활성화."""
         if self.notifiers:

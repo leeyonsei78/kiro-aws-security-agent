@@ -39,6 +39,7 @@ src/agent/
   config.py            # 환경변수 기반 설정
   aws.py               # boto3 클라이언트 생성 공통 헬퍼
   finding_utils.py     # finding raw 파싱 공통 헬퍼 (GuardDuty 원격 IP 등)
+  webhook_auth.py      # 방화벽 webhook 인증 (API 키 / IP 허용목록)
   registry.py          # collector/notifier/remediator 플러그인 등록
   core.py              # 오케스트레이션 (수집→정규화→필터→알림→대응, preview_parse)
   collectors/
