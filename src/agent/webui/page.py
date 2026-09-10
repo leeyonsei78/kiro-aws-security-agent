@@ -87,12 +87,18 @@ INDEX_HTML = r"""<!DOCTYPE html>
 <main>
   <section class="card">
     <div class="tabs">
-      <div class="tab active" data-tab="firewall" onclick="switchTab('firewall')">써드파티 방화벽 로그</div>
+      <div class="tab active" data-tab="overview" onclick="switchTab('overview')">전체 기능 개요</div>
+      <div class="tab" data-tab="firewall" onclick="switchTab('firewall')">써드파티 방화벽 로그</div>
       <div class="tab" data-tab="event" onclick="switchTab('event')">AWS 이벤트(JSON)</div>
       <div class="tab" data-tab="compliance" onclick="switchTab('compliance')">컴플라이언스 점검 항목</div>
     </div>
 
-    <div id="pane-firewall">
+    <div id="pane-overview">
+      <p class="hint" style="font-size:13px">이 에이전트가 제공하는 <b>전체 기능</b>입니다. 수집(Collector) → 정규화 → 필터 → 알림(Notifier) → 자동 대응(Remediator) 파이프라인과 지원 항목을 한눈에 보여줍니다. 각 탭에서 실제 동작을 테스트할 수 있습니다.</p>
+      <div class="row" style="margin-top:8px"><button class="btn primary" onclick="showOverview()">기능 개요 불러오기</button></div>
+    </div>
+
+    <div id="pane-firewall" style="display:none">
       <label>벤더</label>
       <select id="vendor"></select>
       <label>방화벽 로그 (한 줄에 하나)</label>
@@ -177,7 +183,8 @@ const EV_SAMPLES = {
 };
 
 let META = {vendors:["auto"], severities:["INFORMATIONAL","LOW","MEDIUM","HIGH","CRITICAL"]};
-let currentTab = 'firewall';
+let CAPS = null;
+let currentTab = 'overview';
 let currentMode = 'parse';
 
 async function loadMeta(){
@@ -194,14 +201,51 @@ function loadEv(k){ document.getElementById('ev-input').value = JSON.stringify(E
 function switchTab(t){
   currentTab = t;
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
+  document.getElementById('pane-overview').style.display = t==='overview'?'block':'none';
   document.getElementById('pane-firewall').style.display = t==='firewall'?'block':'none';
   document.getElementById('pane-event').style.display = t==='event'?'block':'none';
   document.getElementById('pane-compliance').style.display = t==='compliance'?'block':'none';
-  // 컴플라이언스 탭에서는 모드/필터/분석 컨트롤 숨기고 항목 목록 자동 표시
-  const isComp = t==='compliance';
-  document.getElementById('controls-row').style.display = isComp?'none':'flex';
-  document.getElementById('mode-hint').style.display = isComp?'none':'block';
-  if (isComp) showChecks();
+  // 개요/컴플라이언스 탭에서는 모드/필터/분석 컨트롤 숨김(입력 없는 조회형 탭)
+  const noControls = (t==='compliance' || t==='overview');
+  document.getElementById('controls-row').style.display = noControls?'none':'flex';
+  document.getElementById('mode-hint').style.display = noControls?'none':'block';
+  if (t==='compliance') showChecks();
+  if (t==='overview') showOverview();
+}
+
+async function showOverview(){
+  document.getElementById('err').textContent='';
+  if (!CAPS){
+    try { CAPS = await (await fetch('/api/capabilities')).json(); }
+    catch(e){ document.getElementById('err').textContent='기능 개요 로드 실패: '+e; return; }
+  }
+  const c = CAPS;
+  document.getElementById('summary').innerHTML =
+    `<span>Collector <b>${c.collectors.length}</b></span>`+
+    `<span>Notifier <b>${c.notifiers.length}</b></span>`+
+    `<span>Remediator <b>${c.remediators.length}</b></span>`+
+    `<span>방화벽 벤더 <b>${c.firewall_vendors.length}</b></span>`+
+    `<span>컴플라이언스 <b>${c.compliance_count}</b>종</span>`;
+
+  const sec = (title, emoji)=>`<h3 class="sec">${emoji} ${title}</h3>`;
+  const card = (name, label, desc, extra)=>`<div class="finding">
+      <div class="top"><span class="title">${esc(label)}</span><span class="badge">${esc(name)}</span></div>
+      <div class="meta">${esc(desc)}${extra?('<br>'+extra):''}</div></div>`;
+
+  let html = sec('수집 · Collectors', '📥');
+  html += c.collectors.map(x=>card(x.name, x.label, x.desc, x.mode?`모드: <code>${esc(x.mode)}</code>`:'')).join('');
+  html += sec('알림 · Notifiers', '📣');
+  html += c.notifiers.map(x=>card(x.name, x.label, x.desc)).join('');
+  html += sec('자동 대응 · Remediators (기본 dry-run)', '🛠️');
+  html += c.remediators.map(x=>{
+    const t = (x.supported_types||[]).slice(0,2).join(', ');
+    return card(x.name, x.label, x.desc, t?`대상: <code>${esc(t)}${x.supported_types.length>2?' 외':''}</code>`:'');
+  }).join('');
+  html += sec('써드파티 방화벽 파서 · Firewall Parsers', '🧱');
+  html += `<div class="finding"><div class="meta">${c.firewall_vendors.map(v=>`<code>${esc(v)}</code>`).join(' · ')} (자동 감지 지원)</div></div>`;
+  html += sec('실시간 이벤트 타입 · EventBridge', '⚡');
+  html += `<div class="finding"><div class="meta">${(c.event_types||[]).map(e=>esc(e)).join('<br>')}</div></div>`;
+  document.getElementById('results').innerHTML = html;
 }
 
 function showChecks(){
@@ -334,6 +378,7 @@ function render(data){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 loadMeta();
+showOverview();   // 기본 탭: 전체 기능 개요
 </script>
 </body>
 </html>

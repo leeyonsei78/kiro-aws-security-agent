@@ -149,3 +149,59 @@ def build_remediators(cfg: Config) -> list[BaseRemediator]:
             continue
         remediators.append(factory(cfg))
     return remediators
+
+
+
+# --- 기능 개요(웹 콘솔 표시용) ---------------------------------------------
+# 사람이 읽는 설명. 코드 요소는 위 팩토리/목록에서 이름을, 여기서 설명을 가져온다.
+_COLLECTOR_INFO: dict[str, dict[str, str]] = {
+    "guardduty": {"label": "Amazon GuardDuty", "desc": "위협 탐지 finding 수집(폴링+실시간)", "mode": "폴링/실시간"},
+    "securityhub": {"label": "AWS Security Hub", "desc": "ASFF 통합 finding 수집(다수 소스 집계)", "mode": "폴링/실시간"},
+    "security_group": {"label": "Security Group", "desc": "인터넷 개방 위험 인바운드 규칙 스캔", "mode": "폴링"},
+    "access_analyzer": {"label": "IAM Access Analyzer", "desc": "외부 공유(퍼블릭/크로스계정) 리소스 탐지", "mode": "폴링/실시간"},
+    "cloudtrail": {"label": "CloudTrail", "desc": "위험 관리 API 호출/루트 활동 탐지", "mode": "폴링/실시간"},
+    "vpc_flow_logs": {"label": "VPC Flow Logs", "desc": "대량 REJECT/포트 스캔 이상 트래픽 탐지", "mode": "폴링"},
+    "firewall_syslog": {"label": "써드파티 방화벽", "desc": "Palo Alto/Fortinet/Check Point/CEF 로그 수신", "mode": "HTTP 수신"},
+    "compliance": {"label": "컴플라이언스 점검", "desc": "KISA/CIS 기반 계정 구성 하드닝 점검", "mode": "폴링"},
+}
+
+_NOTIFIER_INFO: dict[str, dict[str, str]] = {
+    "slack": {"label": "Slack", "desc": "Incoming Webhook 알림"},
+    "email_sns": {"label": "Email (SNS)", "desc": "SNS 토픽 → 이메일 구독 알림"},
+    "stdout": {"label": "표준 출력", "desc": "로컬/디버깅용 콘솔 출력"},
+}
+
+_REMEDIATOR_INFO: dict[str, dict[str, str]] = {
+    "nacl_block_ip": {"label": "NACL IP 차단", "desc": "공격 원격 IP를 NACL deny 규칙으로 차단"},
+    "sg_revoke_ingress": {"label": "SG 규칙 회수", "desc": "인터넷 개방 인바운드 규칙 revoke"},
+    "s3_public_block": {"label": "S3 퍼블릭 차단", "desc": "공개 버킷에 Public Access Block 적용"},
+    "waf_ipset_block": {"label": "WAF IPSet 차단", "desc": "악성 IP를 WAFv2 IPSet에 추가(앱 계층)"},
+    "iam_disable_key": {"label": "IAM 키 비활성화", "desc": "침해 의심 액세스 키를 Inactive 전환"},
+    "ec2_quarantine": {"label": "EC2 격리", "desc": "침해 의심 인스턴스를 격리 SG로 교체"},
+}
+
+
+def capabilities() -> dict:
+    """웹 콘솔용 전체 기능 개요(이름/설명/메타)를 반환."""
+    collectors = [
+        {"name": n, **_COLLECTOR_INFO.get(n, {"label": n, "desc": "", "mode": ""})}
+        for n in _COLLECTOR_FACTORIES
+    ]
+    notifiers = [
+        {"name": n, **_NOTIFIER_INFO.get(n, {"label": n, "desc": ""})}
+        for n in _NOTIFIER_INFO
+    ]
+    remediators = []
+    for name, factory in _REMEDIATOR_FACTORIES.items():
+        info = _REMEDIATOR_INFO.get(name, {"label": name, "desc": ""})
+        supported: list[str] = []
+        try:
+            # 클래스의 supported_types를 읽기 위해 임시 인스턴스 생성(설정 무관 필드)
+            from .config import Config
+            inst = factory(Config(collectors=[], notifiers=[]))
+            supported = list(getattr(inst, "supported_types", ()) or ())
+        except Exception:  # noqa: BLE001
+            supported = []
+        remediators.append({"name": name, **info, "supported_types": supported})
+
+    return {"collectors": collectors, "notifiers": notifiers, "remediators": remediators}

@@ -22,9 +22,13 @@ PYTHONPATH=src python -m agent.webui.server
 
 ## 사용법
 
-브라우저에서 접속 후:
+브라우저에서 접속하면 기본으로 **전체 기능 개요** 탭이 열립니다.
 
-1. **탭 선택** — "써드파티 방화벽 로그" 또는 "AWS 이벤트(JSON)"
+- **전체 기능 개요**: 이 에이전트가 제공하는 모든 기능을 한눈에 표시 — Collector(수집) 8종, Notifier(알림) 3종, Remediator(자동 대응) 6종, 방화벽 파서 4벤더, 컴플라이언스 점검 16종, 실시간 이벤트 타입.
+
+각 탭에서 실제 동작을 테스트합니다:
+
+1. **탭 선택** — "전체 기능 개요" / "써드파티 방화벽 로그" / "AWS 이벤트(JSON)" / "컴플라이언스 점검 항목"
 2. **입력** — 로그 라인(방화벽) 또는 EventBridge JSON(이벤트)을 붙여넣기. 상단 **샘플 칩**으로 예시를 바로 채울 수 있음
 3. **벤더/최소 심각도** 선택 (방화벽은 `auto` 자동 감지 지원)
 4. **모드 선택** — "파싱·필터만" 또는 "전체 파이프라인"
@@ -38,7 +42,9 @@ PYTHONPATH=src python -m agent.webui.server
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/` | 검증 UI (HTML) |
-| GET | `/api/meta` | 지원 벤더/이벤트타입/심각도 목록 |
+| GET | `/api/capabilities` | 전체 기능 개요(collector/notifier/remediator/방화벽 벤더/컴플라이언스 수) |
+| GET | `/api/meta` | 지원 벤더/이벤트타입/심각도/컴플라이언스 항목 목록 |
+| GET | `/api/compliance-report` | 컴플라이언스 데모 리포트(점수/등급/카테고리 집계) |
 | POST | `/api/firewall` | 방화벽 파싱·필터: `{"raw": "<로그>", "vendor": "auto", "min_severity": "MEDIUM"}` |
 | POST | `/api/event` | 이벤트 파싱·필터: `{"event": {<EventBridge JSON>}, "min_severity": "MEDIUM"}` |
 | POST | `/api/pipeline` | 전체 파이프라인: 위 입력 + `"kind": "firewall"\|"event"` → 알림/대응 포함 |

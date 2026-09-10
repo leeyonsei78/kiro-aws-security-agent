@@ -26,7 +26,7 @@ from ..config import load_config
 from ..core import preview_parse, preview_pipeline
 from ..firewall.registry import available_vendors
 from ..models import Severity
-from ..registry import EVENT_TYPE_TO_COLLECTOR
+from ..registry import EVENT_TYPE_TO_COLLECTOR, capabilities
 from .page import INDEX_HTML
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,13 @@ class Handler(BaseHTTPRequestHandler):
             # AWS 없이 리포트 UI/점수 산정을 보여주는 데모(모든 체크 위반 가정)
             from ..compliance.report import demo_report
             self._send_json(demo_report())
+        elif self.path == "/api/capabilities":
+            # 전체 기능 개요(collector/notifier/remediator + 방화벽 벤더 + 컴플라이언스 수)
+            caps = capabilities()
+            caps["firewall_vendors"] = available_vendors()
+            caps["compliance_count"] = len(all_checks())
+            caps["event_types"] = sorted(EVENT_TYPE_TO_COLLECTOR.keys())
+            self._send_json(caps)
         else:
             self._send_json({"error": "not found"}, status=404)
 

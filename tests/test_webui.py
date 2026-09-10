@@ -100,6 +100,28 @@ def test_meta_includes_compliance_checks():
     print("OK compliance checks available:", sorted(codes))
 
 
+def test_index_html_has_overview_tab():
+    assert "전체 기능 개요" in INDEX_HTML
+    assert 'data-tab="overview"' in INDEX_HTML
+    assert "showOverview" in INDEX_HTML
+    assert "/api/capabilities" in INDEX_HTML
+    print("OK index html contains overview tab & capabilities")
+
+
+def test_capabilities_content():
+    # registry.capabilities()가 전체 기능을 반환하는지
+    from agent.registry import capabilities
+    caps = capabilities()
+    assert len(caps["collectors"]) == 8
+    assert len(caps["remediators"]) == 6
+    assert {"slack", "email_sns", "stdout"} == {n["name"] for n in caps["notifiers"]}
+    # remediator supported_types가 채워지는지(예: nacl_block_ip)
+    nacl = next(r for r in caps["remediators"] if r["name"] == "nacl_block_ip")
+    assert nacl["supported_types"], "supported_types가 비어있음"
+    print("OK capabilities:", len(caps["collectors"]), "collectors,",
+          len(caps["remediators"]), "remediators")
+
+
 if __name__ == "__main__":
     test_preview_firewall_multi()
     test_preview_firewall_filter()
@@ -108,4 +130,6 @@ if __name__ == "__main__":
     test_preview_event_unsupported()
     test_index_html_served()
     test_meta_includes_compliance_checks()
+    test_index_html_has_overview_tab()
+    test_capabilities_content()
     print("\nALL WEBUI TESTS PASSED")
