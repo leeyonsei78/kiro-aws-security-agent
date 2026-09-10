@@ -122,6 +122,28 @@ def test_capabilities_content():
           len(caps["remediators"]), "remediators")
 
 
+def test_capabilities_have_beginner_descriptions():
+    # 초보자용 상세 설명(collects/example)이 collector에 포함되는지
+    from agent.registry import capabilities
+    caps = capabilities()
+    for col in caps["collectors"]:
+        assert col.get("desc"), f"{col['name']} desc 없음"
+        assert col.get("collects"), f"{col['name']} collects 없음"
+    # remediator example 확인
+    for rem in caps["remediators"]:
+        assert rem.get("desc"), f"{rem['name']} desc 없음"
+        assert rem.get("example"), f"{rem['name']} example 없음"
+    print("OK 모든 collector/remediator에 초보자용 설명 존재")
+
+
+def test_index_html_has_glossary():
+    assert "용어 사전" in INDEX_HTML
+    assert "pane-glossary" in INDEX_HTML
+    assert "showGlossary" in INDEX_HTML
+    assert "GuardDuty" in INDEX_HTML and "dry-run" in INDEX_HTML  # 용어 항목
+    print("OK index html contains glossary tab & terms")
+
+
 if __name__ == "__main__":
     test_preview_firewall_multi()
     test_preview_firewall_filter()
@@ -132,4 +154,6 @@ if __name__ == "__main__":
     test_meta_includes_compliance_checks()
     test_index_html_has_overview_tab()
     test_capabilities_content()
+    test_capabilities_have_beginner_descriptions()
+    test_index_html_has_glossary()
     print("\nALL WEBUI TESTS PASSED")

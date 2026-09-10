@@ -98,9 +98,18 @@ PYTHONPATH=src python -m agent.cli --lookback-minutes 60
 
 로그/이벤트를 브라우저에 붙여넣어 **전체 파이프라인(정규화→필터→알림→자동대응)** 을 즉시 확인 (AWS 자격증명 불필요):
 
+가장 쉬운 방법 — **`run.bat`(Windows) 더블클릭** 또는 **`./run.sh`(macOS/Linux)**. 서버가 뜨고 브라우저가 자동으로 열립니다. (boto3·AWS 자격증명 불필요)
+
+명령으로 실행 시 OS별 문법:
+
 ```bash
-PYTHONPATH=src python -m agent.webui.server   # http://127.0.0.1:8080
+# macOS/Linux
+PYTHONPATH=src python -m agent.webui.server        # http://127.0.0.1:8080
+# Windows PowerShell
+$env:PYTHONPATH="src"; python -m agent.webui.server
 ```
+
+접속하면 **전체 기능 개요 · 방화벽 · AWS 이벤트 · 컴플라이언스 · 용어 사전** 5개 탭이 있으며, 각 화면에서 무엇을 점검/수집하는지 설명을 제공합니다.
 
 - **파싱·필터만** 모드: 정규화된 finding과 심각도 필터 통과/제외 확인
 - **전체 파이프라인** 모드: 위에 더해 **알림 메시지 미리보기**(Slack/Email/stdout)와 **자동 대응 dry-run 계획**(NACL/SG/S3/WAF/IAM/EC2)까지 — 실제 전송·변경은 없음

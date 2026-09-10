@@ -9,22 +9,32 @@
 
 ## 실행
 
-```bash
-python -m agent.webui.server                 # http://127.0.0.1:8080
-python -m agent.webui.server --port 9000 --host 0.0.0.0
-```
+> 웹 콘솔은 **boto3나 AWS 자격증명이 필요 없습니다.** (파싱/미리보기 전용)
 
-`src/`가 `PYTHONPATH`에 있어야 합니다:
+### 가장 쉬운 방법 — 더블클릭
 
-```bash
-PYTHONPATH=src python -m agent.webui.server
-```
+- **Windows**: 저장소 폴더의 **`run.bat`** 더블클릭 → 서버 실행 + 브라우저 자동 열기
+- **macOS/Linux**: 터미널에서 **`./run.sh`** (최초 1회 `chmod +x run.sh`)
+
+### 명령으로 실행 (OS별 문법 주의)
+
+| 환경 | 명령 |
+|------|------|
+| Windows PowerShell | `$env:PYTHONPATH="src"; python -m agent.webui.server` |
+| Windows CMD | `set PYTHONPATH=src && python -m agent.webui.server` |
+| macOS/Linux | `PYTHONPATH=src python -m agent.webui.server` |
+
+포트 변경: `--port 9000`. 접속: **http://127.0.0.1:8080**
 
 ## 사용법
 
-브라우저에서 접속하면 기본으로 **전체 기능 개요** 탭이 열립니다.
+브라우저에서 접속하면 기본으로 **전체 기능 개요** 탭이 열립니다. 탭은 5개입니다:
 
-- **전체 기능 개요**: 이 에이전트가 제공하는 모든 기능을 한눈에 표시 — Collector(수집) 8종, Notifier(알림) 3종, Remediator(자동 대응) 6종, 방화벽 파서 4벤더, 컴플라이언스 점검 16종, 실시간 이벤트 타입.
+- **전체 기능 개요**: 이 에이전트의 모든 기능을 한눈에 — 각 수집기가 **무엇을·어디서 수집하는지**와 예시 상황까지 설명. Collector 8 / Notifier 3 / Remediator 6 / 방화벽 4벤더 / 컴플라이언스 16종.
+- **써드파티 방화벽 로그**: 방화벽 로그 한 줄을 붙여넣어 파싱/정규화 체험
+- **AWS 이벤트(JSON)**: GuardDuty/Security Hub 이벤트로 전체 파이프라인 체험
+- **컴플라이언스 점검 항목**: 16개 점검 항목 카탈로그 + 점수/등급 데모 리포트
+- **용어 사전 (초보자용)**: GuardDuty·IAM·Security Group·dry-run 등 21개 용어를 쉬운 말로 설명
 
 각 탭에서 실제 동작을 테스트합니다:
 

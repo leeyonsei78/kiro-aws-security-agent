@@ -91,6 +91,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <div class="tab" data-tab="firewall" onclick="switchTab('firewall')">써드파티 방화벽 로그</div>
       <div class="tab" data-tab="event" onclick="switchTab('event')">AWS 이벤트(JSON)</div>
       <div class="tab" data-tab="compliance" onclick="switchTab('compliance')">컴플라이언스 점검 항목</div>
+      <div class="tab" data-tab="glossary" onclick="switchTab('glossary')">용어 사전 (초보자용)</div>
     </div>
 
     <div id="pane-overview">
@@ -99,7 +100,8 @@ INDEX_HTML = r"""<!DOCTYPE html>
     </div>
 
     <div id="pane-firewall" style="display:none">
-      <label>벤더</label>
+      <p class="hint" style="font-size:13px">🧱 <b>무엇을 하나요?</b> Palo Alto·Fortinet·Check Point 등 방화벽 장비가 남긴 <b>로그 한 줄</b>을 붙여넣으면, 어느 벤더인지 자동 인식해 위협 내용·심각도·출발지 IP를 <b>통합 형식(finding)</b>으로 변환합니다. 아래 샘플 칩을 눌러 바로 체험해 보세요.</p>
+      <label>벤더 (auto = 자동 인식)</label>
       <select id="vendor"></select>
       <label>방화벽 로그 (한 줄에 하나)</label>
       <textarea id="fw-input" placeholder="예) devname=... type=utm subtype=ips level=alert srcip=... attack=..."></textarea>
@@ -107,6 +109,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
     </div>
 
     <div id="pane-event" style="display:none">
+      <p class="hint" style="font-size:13px">⚡ <b>무엇을 하나요?</b> GuardDuty·Security Hub 같은 AWS 보안 서비스가 EventBridge로 보내는 <b>이벤트(JSON)</b>를 붙여넣으면, 위협을 통합 형식으로 정규화하고 심각도 필터·알림·자동 대응 계획까지 미리 볼 수 있습니다. 샘플 칩으로 체험해 보세요.</p>
       <label>EventBridge 이벤트 JSON</label>
       <textarea id="ev-input" placeholder='{"detail-type":"GuardDuty Finding","detail":{...}}'></textarea>
       <div class="samples" id="ev-samples"></div>
@@ -118,6 +121,10 @@ INDEX_HTML = r"""<!DOCTYPE html>
         <button class="btn" onclick="showChecks()">점검 항목 목록</button>
         <button class="btn primary" onclick="showReport()">데모 리포트 보기</button>
       </div>
+    </div>
+
+    <div id="pane-glossary" style="display:none">
+      <p class="hint" style="font-size:13px">📖 AWS 보안 용어와 이 프로그램이 다루는 장비/서비스를 초보자용으로 설명합니다. 아래에 자동으로 목록이 표시됩니다.</p>
     </div>
 
     <div class="row" id="controls-row">
@@ -205,12 +212,45 @@ function switchTab(t){
   document.getElementById('pane-firewall').style.display = t==='firewall'?'block':'none';
   document.getElementById('pane-event').style.display = t==='event'?'block':'none';
   document.getElementById('pane-compliance').style.display = t==='compliance'?'block':'none';
-  // 개요/컴플라이언스 탭에서는 모드/필터/분석 컨트롤 숨김(입력 없는 조회형 탭)
-  const noControls = (t==='compliance' || t==='overview');
+  document.getElementById('pane-glossary').style.display = t==='glossary'?'block':'none';
+  // 조회형 탭(개요/컴플라이언스/용어)에서는 모드/필터/분석 컨트롤 숨김
+  const noControls = (t==='compliance' || t==='overview' || t==='glossary');
   document.getElementById('controls-row').style.display = noControls?'none':'flex';
   document.getElementById('mode-hint').style.display = noControls?'none':'block';
   if (t==='compliance') showChecks();
   if (t==='overview') showOverview();
+  if (t==='glossary') showGlossary();
+}
+
+const GLOSSARY = [
+  {term:"finding", desc:"보안 서비스가 찾아낸 '이상/위협 결과' 한 건. 이 프로그램은 모든 소스의 finding을 하나의 통합 형식으로 정규화합니다."},
+  {term:"심각도 (Severity)", desc:"위협의 위험도. INFORMATIONAL < LOW < MEDIUM < HIGH < CRITICAL 순. '최소 심각도' 필터로 낮은 건 걸러냅니다."},
+  {term:"GuardDuty", desc:"AWS의 위협 탐지 서비스. 로그를 머신러닝으로 분석해 무차별 대입 공격·악성 통신·자격증명 도용 등을 자동 탐지합니다."},
+  {term:"Security Hub", desc:"여러 보안 서비스의 결과를 한곳에 모으는 통합 서비스. GuardDuty·Inspector·Config 결과를 표준 형식(ASFF)으로 집계합니다."},
+  {term:"Security Group (SG)", desc:"AWS 리소스(EC2 등)에 붙는 가상 방화벽. 어떤 IP·포트가 들어올 수 있는지 규칙으로 정의합니다. 인터넷 전체(0.0.0.0/0) 개방이 위험합니다."},
+  {term:"NACL (Network ACL)", desc:"서브넷(네트워크 구획) 단위의 방화벽. Security Group과 달리 '차단(deny)' 규칙을 명시할 수 있어 공격 IP 차단에 씁니다."},
+  {term:"IAM", desc:"AWS의 계정·권한 관리 서비스. 사용자·역할·정책·액세스 키를 다룹니다. 루트 계정, MFA, 액세스 키가 핵심 점검 대상입니다."},
+  {term:"MFA (다중 인증)", desc:"비밀번호 외에 추가 인증(앱 코드 등)을 요구하는 보안 장치. 콘솔 로그인 사용자에게 필수 권장."},
+  {term:"액세스 키 (Access Key)", desc:"프로그램이 AWS를 호출할 때 쓰는 장기 자격증명(AKIA...로 시작). 유출되면 위험하므로 주기적 교체·최소화가 필요합니다."},
+  {term:"CloudTrail", desc:"계정의 모든 API 호출(누가·언제·무엇)을 기록하는 감사 로그 서비스. 로깅을 끄거나 루트로 설정 변경 시 위험 신호입니다."},
+  {term:"VPC / Flow Logs", desc:"VPC는 내 AWS 가상 네트워크. Flow Logs는 그 안팎 트래픽 기록으로, 포트 스캔·대량 접속 거부 같은 이상 징후를 봅니다."},
+  {term:"S3", desc:"AWS의 파일 저장소(버킷). 실수로 '퍼블릭 공개'되거나 암호화가 꺼져 있으면 데이터 유출 위험이 큽니다."},
+  {term:"EC2", desc:"AWS의 가상 서버. 감염 의심 시 '격리'(격리용 SG로 교체)해 네트워크에서 고립시키되, 포렌식을 위해 종료하지 않습니다."},
+  {term:"RDS", desc:"AWS의 관리형 데이터베이스. 퍼블릭 접근 허용·저장 암호화 미설정이 주요 점검 항목입니다."},
+  {term:"ECR", desc:"컨테이너 이미지 저장소. 이미지 스캔(취약점 점검)과 태그 불변성(공급망 변조 방지)이 중요합니다."},
+  {term:"WAF", desc:"웹 애플리케이션 방화벽. CloudFront/ALB 앞단에서 웹 공격을 차단. 악성 IP를 IPSet에 넣어 차단합니다."},
+  {term:"Remediator (자동 대응)", desc:"위협 발견 시 자동으로 조치하는 기능(IP 차단·키 비활성화 등). 기본은 dry-run(계획만, 실제 변경 안 함)이라 안전합니다."},
+  {term:"dry-run", desc:"'모의 실행'. 실제로 바꾸지 않고 '무엇을 할지 계획'만 보여줍니다. 이 프로그램의 자동 대응 기본값입니다."},
+  {term:"컴플라이언스 점검", desc:"계정 설정이 보안 기준(KISA/CIS)에 맞는지 자체 점검하는 기능. 16개 항목을 검사해 100점 만점 점수·등급으로 요약합니다."},
+  {term:"CIS / KISA", desc:"보안 설정 기준을 제시하는 표준. CIS는 국제 벤치마크, KISA는 한국인터넷진흥원 가이드. 컴플라이언스 점검의 근거입니다."},
+  {term:"써드파티 방화벽", desc:"AWS가 아닌 상용 방화벽 장비(Palo Alto·Fortinet·Check Point). 이 프로그램은 그 로그를 받아 통합 형식으로 변환합니다."},
+];
+
+function showGlossary(){
+  document.getElementById('summary').innerHTML = `<span>용어 <b>${GLOSSARY.length}</b>개 · 초보자용 설명</span>`;
+  document.getElementById('results').innerHTML = GLOSSARY.map(g=>`<div class="finding">
+      <div class="top"><span class="title">${esc(g.term)}</span></div>
+      <div class="meta">${esc(g.desc)}</div></div>`).join('');
 }
 
 async function showOverview(){
@@ -232,14 +272,23 @@ async function showOverview(){
       <div class="top"><span class="title">${esc(label)}</span><span class="badge">${esc(name)}</span></div>
       <div class="meta">${esc(desc)}${extra?('<br>'+extra):''}</div></div>`;
 
-  let html = sec('수집 · Collectors', '📥');
-  html += c.collectors.map(x=>card(x.name, x.label, x.desc, x.mode?`모드: <code>${esc(x.mode)}</code>`:'')).join('');
-  html += sec('알림 · Notifiers', '📣');
-  html += c.notifiers.map(x=>card(x.name, x.label, x.desc)).join('');
-  html += sec('자동 대응 · Remediators (기본 dry-run)', '🛠️');
+  // 수집기: 설명 + 수집 정보 + 예시까지 상세 표시
+  const collectorCard = (x)=>`<div class="finding">
+      <div class="top"><span class="title">${esc(x.label)}</span><span class="badge">${esc(x.name)}</span>${x.mode?`<span class="badge">${esc(x.mode)}</span>`:''}</div>
+      <div class="meta">${esc(x.desc||'')}
+        ${x.collects?`<br>🔎 <b>수집 정보</b>: ${esc(x.collects)}`:''}
+        ${x.example?`<br>💡 ${esc(x.example)}`:''}</div></div>`;
+
+  let html = sec('수집 · Collectors (무엇을 어디서 가져오는가)', '📥');
+  html += c.collectors.map(collectorCard).join('');
+  html += sec('알림 · Notifiers (탐지 결과를 어디로 보내는가)', '📣');
+  html += c.notifiers.map(x=>card(x.name, x.label, x.desc + (x.collects?` — ${x.collects}`:''))).join('');
+  html += sec('자동 대응 · Remediators (위협 발견 시 무엇을 하는가, 기본 dry-run)', '🛠️');
   html += c.remediators.map(x=>{
     const t = (x.supported_types||[]).slice(0,2).join(', ');
-    return card(x.name, x.label, x.desc, t?`대상: <code>${esc(t)}${x.supported_types.length>2?' 외':''}</code>`:'');
+    const extra = (x.example?`💡 ${esc(x.example)}`:'')
+      + (t?`<br>대상 유형: <code>${esc(t)}${x.supported_types.length>2?' 외':''}</code>`:'');
+    return card(x.name, x.label, x.desc, extra);
   }).join('');
   html += sec('써드파티 방화벽 파서 · Firewall Parsers', '🧱');
   html += `<div class="finding"><div class="meta">${c.firewall_vendors.map(v=>`<code>${esc(v)}</code>`).join(' · ')} (자동 감지 지원)</div></div>`;
