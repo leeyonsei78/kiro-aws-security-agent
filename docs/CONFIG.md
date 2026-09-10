@@ -60,6 +60,13 @@ AWS 계정 구성을 **규칙 기반으로 점검**해 위반을 finding으로 �
 | `CA-30` | 기본 보안그룹에 허용 규칙 존재 | MEDIUM | 네트워크 | ec2 |
 | `CA-40` | RDS 인스턴스 퍼블릭 액세스 허용 | HIGH | 네트워크 | rds |
 | `CA-41` | RDS 저장 데이터 암호화 미설정 | MEDIUM | 데이터 보호 | rds |
+| `SC-01` | ECR 리포지토리 푸시 시 이미지 스캔 미설정 | MEDIUM | 공급망 보안 | ecr |
+| `SC-02` | ECR 이미지 태그 불변성 미설정 | LOW | 공급망 보안 | ecr |
+| `SC-10` | Lambda 함수 지원 종료(EOL) 런타임 사용 | HIGH | 공급망 보안 | lambda |
+| `ZT-01` | 관리형 정책에 와일드카드 관리자 권한(Action:* Resource:*) | HIGH | 제로트러스트 | iam |
+| `ZT-02` | 오래된 IAM 액세스 키(90일 초과 미교체) | MEDIUM | 제로트러스트 | iam |
+
+> **SW 공급망(SC)/제로트러스트(ZT) 항목**은 KISA 기반 [KESE-KIT](https://github.com/cdppcorp/KESE-KIT)(MIT)의 SW 공급망·제로트러스트 가이드 접근을 참고해 AWS API로 새로 구현했습니다. (SC: NIST SSDF/NTIA SBOM, ZT: NIST SP 800-207 관점)
 
 - 활성화: `COLLECTORS`에 `compliance` 추가 (예: `COLLECTORS=guardduty,securityhub,compliance`)
 - 새 항목은 `src/agent/compliance/`에 체크 클래스를 추가하고 `compliance/registry.py`에 등록하면 됩니다([EXTENDING.md](EXTENDING.md) 참고).

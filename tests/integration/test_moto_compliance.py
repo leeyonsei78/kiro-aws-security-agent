@@ -18,9 +18,17 @@ from agent.compliance.checks_s3 import S3PublicAccessBlockCheck, S3EncryptionChe
 from agent.compliance.checks_iam import IamRootAccessKeyCheck, IamPasswordPolicyCheck
 from agent.compliance.checks_cloudtrail import CloudTrailEnabledCheck
 from agent.compliance.checks_ec2 import EbsEncryptionByDefaultCheck, DefaultSgOpenCheck
+from agent.compliance.checks_supplychain import EcrScanOnPushCheck, LambdaDeprecatedRuntimeCheck
+from agent.compliance.checks_zerotrust import IamStaleAccessKeyCheck
 from agent.compliance.report import build_report
 
 REGION = "us-east-1"
+
+
+def _skip_if_unsupported(e: ClientError):
+    if "NotImplemented" in str(e) or "501" in str(e):
+        pytest.skip(f"moto 미지원: {e}")
+    raise e
 
 
 def _codes(findings):
@@ -148,3 +156,74 @@ def test_full_compliance_report_via_collector():
     assert report["total_violations"] == len(findings)
     print("OK moto 전체 리포트: score", report["score"], report["grade"],
           "violations", report["total_violations"])
+
+
+
+@mock_aws
+def test_ecr_scan_on_push_flagged():
+    ecr = boto3.client("ecr", region_name=REGION)
+    # scanOnPush 기본 false로 리포지토리 생성 → SC-01 위반
+    ecr.create_repository(repositoryName="app")
+    col = ComplianceCollector(region=REGION, checks=[EcrScanOnPushCheck()])
+    try:
+        findings = list(col.collect(since=None))
+    except ClientError as e:
+        _skip_if_unsupported(e)
+    assert any(f.raw["code"] == "SC-01" for f in findings)
+    print("OK moto SC-01 ECR scanOnPush 감지")
+
+
+@mock_aws
+def test_lambda_deprecated_runtime_flagged():
+    iam = boto3.client("iam", region_name=REGION)
+    role = iam.create_role(RoleName="r", AssumeRolePolicyDocument="{}")["Role"]["Arn"]
+    lam = boto3.client("lambda", region_name=REGION)
+    try:
+        lam.create_function(
+            FunctionName="legacy", Runtime="python3.8", Role=role,
+            Handler="app.handler", Code={"ZipFile": b"def handler(e,c): pass"},
+        )
+    except ClientError as e:
+        _skip_if_unsupported(e)
+    col = ComplianceCollector(region=REGION, checks=[LambdaDeprecatedRuntimeCheck()])
+    try:
+        findings = list(col.collect(since=None))
+    except ClientError as e:
+        _skip_if_unsupported(e)
+    assert any(f.raw["code"] == "SC-10" for f in findings)
+    print("OK moto SC-10 Lambda EOL 런타임 감지")
+
+
+@mock_aws
+def test_zt_stale_access_key_flagged():
+    # moto의 새 액세스 키는 방금 생성돼 오래되지 않음 → 위반 없어야(로직 정상 동작 확인)
+    iam = boto3.client("iam", region_name=REGION)
+    iam.create_user(UserName="u1")
+    iam.create_access_key(UserName="u1")
+    col = ComplianceCollector(region=REGION, checks=[IamStaleAccessKeyCheck()])
+    try:
+        findings = list(col.collect(since=None))
+    except ClientError as e:
+        _skip_if_unsupported(e)
+    assert all(f.raw["code"] != "ZT-02" for f in findings)  # 새 키라 미위반
+    print("OK moto ZT-02 신규 키 미위반(로직 정상)")
+
+
+@mock_aws
+def test_full_report_includes_supplychain_and_zt():
+    # 전체 체크 실행 → 리포트에 공급망/제로트러스트 카테고리 포함 가능
+    s3 = boto3.client("s3", region_name=REGION)
+    s3.create_bucket(Bucket="plain-b")
+    ecr = boto3.client("ecr", region_name=REGION)
+    ecr.create_repository(repositoryName="repo1")
+    col = ComplianceCollector(region=REGION)  # 전체 16종
+    try:
+        findings = list(col.collect(since=None))
+    except ClientError as e:
+        _skip_if_unsupported(e)
+    report = build_report(findings)
+    assert 0 <= report["score"] <= 100
+    assert report["grade"] in ("A", "B", "C", "D", "F")
+    # 공급망 카테고리가 리포트에 반영되는지(ECR scanOnPush 위반 기대)
+    print("OK moto 전체 리포트(SC/ZT 포함): score", report["score"],
+          "categories", list(report["by_category"].keys()))

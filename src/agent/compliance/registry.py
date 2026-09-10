@@ -16,9 +16,16 @@ from .checks_iam import (
 )
 from .checks_rds import RdsEncryptionCheck, RdsPublicAccessCheck
 from .checks_s3 import S3EncryptionCheck, S3PublicAccessBlockCheck
+from .checks_supplychain import (
+    EcrScanOnPushCheck,
+    EcrTagImmutabilityCheck,
+    LambdaDeprecatedRuntimeCheck,
+)
+from .checks_zerotrust import IamStaleAccessKeyCheck, IamWildcardAdminPolicyCheck
 
 # 실행할 전체 체크 목록 (코드 순)
 ALL_CHECKS: list[BaseComplianceCheck] = [
+    # 데이터 보호 / 계정 관리 / 네트워크 / 감사·로깅
     S3PublicAccessBlockCheck(),      # CA-01
     S3EncryptionCheck(),             # CA-02
     EbsEncryptionByDefaultCheck(),   # CA-03
@@ -30,6 +37,13 @@ ALL_CHECKS: list[BaseComplianceCheck] = [
     DefaultSgOpenCheck(),            # CA-30
     RdsPublicAccessCheck(),          # CA-40
     RdsEncryptionCheck(),            # CA-41
+    # SW 공급망 보안
+    EcrScanOnPushCheck(),            # SC-01
+    EcrTagImmutabilityCheck(),       # SC-02
+    LambdaDeprecatedRuntimeCheck(),  # SC-10
+    # 제로트러스트
+    IamWildcardAdminPolicyCheck(),   # ZT-01
+    IamStaleAccessKeyCheck(),        # ZT-02
 ]
 
 

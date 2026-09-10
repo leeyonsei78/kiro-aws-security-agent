@@ -60,8 +60,12 @@
         "iam:GetLoginProfile",
         "iam:ListMFADevices",
         "iam:ListAccessKeys",
+        "iam:ListPolicies",
+        "iam:GetPolicyVersion",
         "ec2:GetEbsEncryptionByDefault",
-        "rds:DescribeDBInstances"
+        "rds:DescribeDBInstances",
+        "ecr:DescribeRepositories",
+        "lambda:ListFunctions"
       ],
       "Resource": "*"
     },

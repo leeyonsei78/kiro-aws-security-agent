@@ -14,7 +14,7 @@ AWS 보안 신호 + 써드파티 방화벽 로그를 **수집 → 정규화 → 
 ## ✅ 지금까지 완료한 것
 
 ### 코어 기능
-- **Collector 8종**: `guardduty`, `securityhub`, `security_group`, `access_analyzer`, `cloudtrail`, `vpc_flow_logs`, `firewall_syslog`, `compliance`(KISA/CIS 기반 CA 점검 11종 + 점수/리포트 요약, KESE-KIT 참고)
+- **Collector 8종**: `guardduty`, `securityhub`, `security_group`, `access_analyzer`, `cloudtrail`, `vpc_flow_logs`, `firewall_syslog`, `compliance`(점검 16종: CA 11 + SC 3(공급망) + ZT 2(제로트러스트) + 점수/리포트, KESE-KIT 참고)
 - **Notifier 3종**: `slack`, `email_sns`, `stdout` (각각 `render()`로 전송 없이 미리보기 지원)
 - **Remediator 6종**: `nacl_block_ip`, `sg_revoke_ingress`, `s3_public_block`, `waf_ipset_block`, `iam_disable_key`, `ec2_quarantine` (기본 비활성 + dry-run + 화이트리스트 + 감사로그)
 - **방화벽 파서 4종**: `fortinet`, `paloalto`, `checkpoint`, `cef` (자동 벤더 감지)
