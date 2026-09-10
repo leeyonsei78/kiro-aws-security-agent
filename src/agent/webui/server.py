@@ -84,11 +84,15 @@ class Handler(BaseHTTPRequestHandler):
                 "severities": [s.name for s in Severity],
                 "compliance_checks": [
                     {"code": c.code, "title": c.title, "severity": c.severity.name,
-                     "service": c.service, "standards": list(c.standards),
-                     "remediation": c.remediation}
+                     "service": c.service, "category": c.category,
+                     "standards": list(c.standards), "remediation": c.remediation}
                     for c in all_checks()
                 ],
             })
+        elif self.path == "/api/compliance-report":
+            # AWS 없이 리포트 UI/점수 산정을 보여주는 데모(모든 체크 위반 가정)
+            from ..compliance.report import demo_report
+            self._send_json(demo_report())
         else:
             self._send_json({"error": "not found"}, status=404)
 

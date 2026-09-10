@@ -13,6 +13,7 @@ class IamPasswordPolicyCheck(BaseComplianceCheck):
     title = "IAM 비밀번호 정책 미흡"
     severity = Severity.MEDIUM
     service = "iam"
+    category = "계정 관리"
     remediation = "UpdateAccountPasswordPolicy로 최소 길이(14+), 대소문자/숫자/기호, 재사용 제한을 설정하세요."
     standards = ("KISA CII(계정관리)", "CIS AWS 1.8")
 
@@ -50,6 +51,7 @@ class IamRootAccessKeyCheck(BaseComplianceCheck):
     title = "루트 계정 액세스 키 존재"
     severity = Severity.CRITICAL
     service = "iam"
+    category = "계정 관리"
     remediation = "루트 액세스 키를 즉시 삭제하고, 일상 작업은 최소권한 IAM 사용자/역할로 수행하세요."
     standards = ("KISA CII(계정관리)", "CIS AWS 1.4")
 
@@ -73,6 +75,7 @@ class IamUserMfaCheck(BaseComplianceCheck):
     title = "콘솔 로그인 가능 IAM 사용자 MFA 미설정"
     severity = Severity.HIGH
     service = "iam"
+    category = "계정 관리"
     remediation = "콘솔 접근 사용자에게 MFA를 강제하세요(EnableMFADevice + 정책으로 MFA 미사용 차단)."
     standards = ("KISA CII(계정관리)", "CIS AWS 1.10")
 
@@ -99,3 +102,30 @@ class IamUserMfaCheck(BaseComplianceCheck):
             return True
         except Exception:  # noqa: BLE001 - NoSuchEntity 등 → 콘솔 접근 없음
             return False
+
+
+
+class IamMultipleActiveKeysCheck(BaseComplianceCheck):
+    code = "CA-13"
+    title = "IAM 사용자당 다중 활성 액세스 키"
+    severity = Severity.MEDIUM
+    service = "iam"
+    category = "계정 관리"
+    remediation = "사용자당 활성 액세스 키는 1개 이하로 유지하세요. 불필요한 키는 비활성화/삭제합니다."
+    standards = ("KISA CII(계정관리)", "CIS AWS 1.13")
+
+    def run(self, client: Any) -> list[CheckViolation]:
+        violations: list[CheckViolation] = []
+        paginator = client.get_paginator("list_users")
+        for page in paginator.paginate():
+            for user in page.get("Users", []):
+                name = user.get("UserName", "")
+                keys = client.list_access_keys(UserName=name).get("AccessKeyMetadata", [])
+                active = [k for k in keys if k.get("Status") == "Active"]
+                if len(active) > 1:
+                    violations.append(CheckViolation(
+                        resource_id=name, resource_type="AwsIamUser",
+                        detail=f"사용자 '{name}'에 활성 액세스 키가 {len(active)}개 존재",
+                        evidence={"activeKeyCount": len(active)},
+                    ))
+        return violations

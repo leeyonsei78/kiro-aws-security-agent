@@ -58,7 +58,10 @@
         "iam:GetAccountSummary",
         "iam:ListUsers",
         "iam:GetLoginProfile",
-        "iam:ListMFADevices"
+        "iam:ListMFADevices",
+        "iam:ListAccessKeys",
+        "ec2:GetEbsEncryptionByDefault",
+        "rds:DescribeDBInstances"
       ],
       "Resource": "*"
     },

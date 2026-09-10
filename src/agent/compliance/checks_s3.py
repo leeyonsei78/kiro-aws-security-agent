@@ -13,6 +13,7 @@ class S3PublicAccessBlockCheck(BaseComplianceCheck):
     title = "S3 버킷 계정 수준 퍼블릭 액세스 차단 미설정"
     severity = Severity.HIGH
     service = "s3"
+    category = "데이터 보호"
     remediation = "s3control:PutPublicAccessBlock로 계정 전체 퍼블릭 액세스를 차단하거나, 버킷별 PublicAccessBlock을 설정하세요."
     standards = ("KISA CII(클라우드)", "CIS AWS 2.1")
 
@@ -41,6 +42,7 @@ class S3EncryptionCheck(BaseComplianceCheck):
     title = "S3 버킷 기본 암호화 미설정"
     severity = Severity.MEDIUM
     service = "s3"
+    category = "데이터 보호"
     remediation = "PutBucketEncryption으로 SSE-S3(AES256) 또는 SSE-KMS 기본 암호화를 설정하세요."
     standards = ("KISA CII(클라우드)", "CIS AWS 2.1.1")
 

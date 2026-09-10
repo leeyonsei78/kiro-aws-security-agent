@@ -47,18 +47,37 @@
 
 AWS 계정 구성을 **규칙 기반으로 점검**해 위반을 finding으로 산출합니다(폴링 전용, 구성 스캔). GuardDuty/Security Hub가 실시간으로 못 잡는 "하드닝/구성" 관점을 커버합니다. 점검 항목 코드 체계(`CA-nn`)는 KISA 기반 [KESE-KIT](https://github.com/cdppcorp/KESE-KIT)(MIT)의 클라우드 점검 방식을 참고했고, 점검 로직은 boto3로 새로 구현했습니다.
 
-| 코드 | 항목 | 심각도 | 서비스 |
-|------|------|:------:|--------|
-| `CA-01` | S3 계정 수준 퍼블릭 액세스 차단 미설정 | HIGH | s3 |
-| `CA-02` | S3 버킷 기본 암호화 미설정 | MEDIUM | s3 |
-| `CA-10` | IAM 비밀번호 정책 미흡 | MEDIUM | iam |
-| `CA-11` | 루트 계정 액세스 키 존재 | CRITICAL | iam |
-| `CA-12` | 콘솔 사용자 MFA 미설정 | HIGH | iam |
-| `CA-20` | 다중 리전 CloudTrail 미구성 | HIGH | cloudtrail |
+| 코드 | 항목 | 심각도 | 카테고리 | 서비스 |
+|------|------|:------:|---------|--------|
+| `CA-01` | S3 계정 수준 퍼블릭 액세스 차단 미설정 | HIGH | 데이터 보호 | s3 |
+| `CA-02` | S3 버킷 기본 암호화 미설정 | MEDIUM | 데이터 보호 | s3 |
+| `CA-03` | EBS 기본 암호화 비활성화 | MEDIUM | 데이터 보호 | ec2 |
+| `CA-10` | IAM 비밀번호 정책 미흡 | MEDIUM | 계정 관리 | iam |
+| `CA-11` | 루트 계정 액세스 키 존재 | CRITICAL | 계정 관리 | iam |
+| `CA-12` | 콘솔 사용자 MFA 미설정 | HIGH | 계정 관리 | iam |
+| `CA-13` | IAM 사용자당 다중 활성 액세스 키 | MEDIUM | 계정 관리 | iam |
+| `CA-20` | 다중 리전 CloudTrail 미구성 | HIGH | 감사/로깅 | cloudtrail |
+| `CA-30` | 기본 보안그룹에 허용 규칙 존재 | MEDIUM | 네트워크 | ec2 |
+| `CA-40` | RDS 인스턴스 퍼블릭 액세스 허용 | HIGH | 네트워크 | rds |
+| `CA-41` | RDS 저장 데이터 암호화 미설정 | MEDIUM | 데이터 보호 | rds |
 
 - 활성화: `COLLECTORS`에 `compliance` 추가 (예: `COLLECTORS=guardduty,securityhub,compliance`)
 - 새 항목은 `src/agent/compliance/`에 체크 클래스를 추가하고 `compliance/registry.py`에 등록하면 됩니다([EXTENDING.md](EXTENDING.md) 참고).
 - 필요한 읽기 권한은 [iam/agent-policy.json](../iam/agent-policy.json)의 `ComplianceRead`에 포함되어 있습니다.
+
+### 점수/리포트 요약
+
+점검 결과를 **100점 만점 점수 + 등급(A~F)**과 카테고리별/심각도별 집계로 요약합니다.
+
+```bash
+# CLI: 계정 점검 후 리포트(텍스트) 출력 — AWS 자격증명 필요
+PYTHONPATH=src python -m agent.cli --compliance-report
+PYTHONPATH=src python -m agent.cli --compliance-report --json   # JSON
+
+# 웹 콘솔: "컴플라이언스 점검 항목" 탭 → "데모 리포트 보기" (AWS 없이 점수 UI 확인)
+```
+
+점수 모델(감점식): 기준 100점에서 위반 심각도별 가중치(CRITICAL 40 / HIGH 15 / MEDIUM 5 / LOW 2)를 차감(하한 0). 등급 A(90+) B(75+) C(60+) D(40+) F.
 
 ## 써드파티 방화벽 수신 (`firewall_syslog`)
 

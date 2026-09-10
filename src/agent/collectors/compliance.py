@@ -65,5 +65,10 @@ class ComplianceCollector(BaseCollector):
             created_at=utcnow(),
             updated_at=utcnow(),
             remediation=check.remediation,
-            raw={"code": check.code, "standards": list(check.standards), "evidence": v.evidence},
+            raw={
+                "code": check.code,
+                "category": check.category,
+                "standards": list(check.standards),
+                "evidence": v.evidence,
+            },
         )

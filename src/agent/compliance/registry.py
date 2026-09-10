@@ -7,17 +7,29 @@ from __future__ import annotations
 
 from .base import BaseComplianceCheck
 from .checks_cloudtrail import CloudTrailEnabledCheck
-from .checks_iam import IamPasswordPolicyCheck, IamRootAccessKeyCheck, IamUserMfaCheck
+from .checks_ec2 import DefaultSgOpenCheck, EbsEncryptionByDefaultCheck
+from .checks_iam import (
+    IamMultipleActiveKeysCheck,
+    IamPasswordPolicyCheck,
+    IamRootAccessKeyCheck,
+    IamUserMfaCheck,
+)
+from .checks_rds import RdsEncryptionCheck, RdsPublicAccessCheck
 from .checks_s3 import S3EncryptionCheck, S3PublicAccessBlockCheck
 
 # 실행할 전체 체크 목록 (코드 순)
 ALL_CHECKS: list[BaseComplianceCheck] = [
-    S3PublicAccessBlockCheck(),
-    S3EncryptionCheck(),
-    IamPasswordPolicyCheck(),
-    IamRootAccessKeyCheck(),
-    IamUserMfaCheck(),
-    CloudTrailEnabledCheck(),
+    S3PublicAccessBlockCheck(),      # CA-01
+    S3EncryptionCheck(),             # CA-02
+    EbsEncryptionByDefaultCheck(),   # CA-03
+    IamPasswordPolicyCheck(),        # CA-10
+    IamRootAccessKeyCheck(),         # CA-11
+    IamUserMfaCheck(),               # CA-12
+    IamMultipleActiveKeysCheck(),    # CA-13
+    CloudTrailEnabledCheck(),        # CA-20
+    DefaultSgOpenCheck(),            # CA-30
+    RdsPublicAccessCheck(),          # CA-40
+    RdsEncryptionCheck(),            # CA-41
 ]
 
 

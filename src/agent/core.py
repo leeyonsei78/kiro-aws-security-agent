@@ -239,3 +239,21 @@ def preview_pipeline(*, event: dict | None = None, firewall_payload: dict | None
         "notifications": notifications,
         "remediations": remediations,
     }
+
+
+
+def compliance_report(cfg: Config) -> dict:
+    """compliance collector로 계정을 점검한 뒤 점수/리포트 요약을 반환.
+
+    실제 AWS를 점검(collect)하므로 자격증명이 필요하다. 알림/대응은 하지 않는다.
+    """
+    from .compliance.report import build_report
+
+    collector = build_collector("compliance", cfg)
+    findings: list[SecurityFinding] = []
+    if collector:
+        try:
+            findings = list(collector.collect(since=utcnow()))
+        except Exception:  # noqa: BLE001
+            logger.exception("compliance 점검 실패")
+    return build_report(findings)

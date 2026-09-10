@@ -69,6 +69,14 @@ INDEX_HTML = r"""<!DOCTYPE html>
   .err { color:var(--crit); font-size:13px; margin-top:10px; white-space:pre-wrap; }
   code { color:var(--accent); }
   .hint { color:var(--muted); font-size:11.5px; margin-top:6px; }
+  .scorecard { display:flex; align-items:center; gap:16px; padding:14px 16px; margin-bottom:12px;
+               border:1px solid var(--border); border-radius:10px; background:var(--panel2); }
+  .scorecard .num { font-size:38px; font-weight:800; line-height:1; }
+  .grade-A,.grade-B{color:var(--green);} .grade-C{color:var(--med);}
+  .grade-D{color:var(--high);} .grade-F{color:var(--crit);}
+  .catbar { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:12.5px; }
+  .catbar .bar { height:8px; border-radius:4px; background:var(--accent); }
+  .catbar .lbl { width:90px; color:var(--muted); }
 </style>
 </head>
 <body>
@@ -99,7 +107,11 @@ INDEX_HTML = r"""<!DOCTYPE html>
     </div>
 
     <div id="pane-compliance" style="display:none">
-      <p class="hint" style="font-size:13px">이 에이전트가 점검하는 <b>AWS 컴플라이언스 항목</b> 목록입니다. 실제 점검은 배포된 에이전트가 AWS 계정을 스캔해 위반을 finding으로 산출합니다(웹 콘솔은 항목 카탈로그만 표시). 항목 체계는 KISA 기반 <a href="https://github.com/cdppcorp/KESE-KIT" style="color:var(--accent)">KESE-KIT</a>(MIT)의 클라우드 점검 코드 방식을 참고했습니다.</p>
+      <p class="hint" style="font-size:13px">이 에이전트가 점검하는 <b>AWS 컴플라이언스 항목</b> 목록입니다. 실제 점검은 배포된 에이전트가 AWS 계정을 스캔해 위반을 finding으로 산출하고 <b>점수/리포트</b>로 요약합니다(웹 콘솔은 항목 카탈로그 및 데모 리포트 표시). 항목 체계는 KISA 기반 <a href="https://github.com/cdppcorp/KESE-KIT" style="color:var(--accent)">KESE-KIT</a>(MIT)의 클라우드 점검 코드 방식을 참고했습니다.</p>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" onclick="showChecks()">점검 항목 목록</button>
+        <button class="btn primary" onclick="showReport()">데모 리포트 보기</button>
+      </div>
     </div>
 
     <div class="row" id="controls-row">
@@ -189,20 +201,53 @@ function switchTab(t){
   const isComp = t==='compliance';
   document.getElementById('controls-row').style.display = isComp?'none':'flex';
   document.getElementById('mode-hint').style.display = isComp?'none':'block';
-  if (isComp) renderCompliance(); 
+  if (isComp) showChecks();
 }
 
-function renderCompliance(){
+function showChecks(){
   const checks = META.compliance_checks || [];
   document.getElementById('summary').innerHTML =
     `<span>점검 항목: <b>${checks.length}</b>개</span><span>근거: <b>KISA CII / CIS AWS</b></span>`;
   const rows = checks.map(c=>`<div class="finding">
       <div class="top"><span class="sev ${c.severity}">${c.severity}</span>
         <span class="title">[${esc(c.code)}] ${esc(c.title)}</span>
-        <span class="badge">${esc(c.service)}</span></div>
+        <span class="badge">${esc(c.category||c.service)}</span></div>
       <div class="meta">근거: ${esc((c.standards||[]).join(', ')||'-')}<br>권고: ${esc(c.remediation||'-')}</div>
     </div>`).join('');
   document.getElementById('results').innerHTML = rows || '<div class="empty">등록된 점검 항목이 없습니다.</div>';
+}
+
+async function showReport(){
+  document.getElementById('err').textContent='';
+  try {
+    const r = await (await fetch('/api/compliance-report')).json();
+    renderReport(r);
+  } catch(e){ document.getElementById('err').textContent='리포트 요청 실패: '+e; }
+}
+
+function renderReport(r){
+  document.getElementById('summary').innerHTML =
+    `<span>데모 리포트</span><span>위반: <b>${r.total_violations}</b>건</span>`;
+  const maxCat = Math.max(1, ...Object.values(r.by_category).map(c=>c.violations));
+  let html = `<div class="scorecard">
+      <div class="num grade-${esc(r.grade)}">${r.score}</div>
+      <div>
+        <div style="font-size:15px;font-weight:700">등급 ${esc(r.grade)} <span style="color:var(--muted);font-weight:400">/ 100점</span></div>
+        <div class="meta">위반 ${r.total_violations}건 · CRITICAL ${r.by_severity.CRITICAL||0} · HIGH ${r.by_severity.HIGH||0} · MEDIUM ${r.by_severity.MEDIUM||0}</div>
+      </div></div>`;
+  html += '<h3 class="sec">카테고리별</h3>';
+  html += Object.entries(r.by_category).sort((a,b)=>b[1].violations-a[1].violations).map(([cat,info])=>{
+    const w = Math.round(info.violations/maxCat*180);
+    return `<div class="catbar"><span class="lbl">${esc(cat)}</span><span class="bar" style="width:${w}px"></span><span>${info.violations}건</span></div>`;
+  }).join('');
+  html += '<h3 class="sec">위반 항목</h3>';
+  html += (r.items||[]).sort((a,b)=>a.code.localeCompare(b.code)).map(it=>`<div class="finding">
+      <div class="top"><span class="sev ${it.severity}">${it.severity}</span>
+        <span class="title">[${esc(it.code)}] ${esc(it.title)}</span>
+        <span class="badge">${esc(it.category)}</span></div>
+      <div class="meta">리소스: ${esc(it.resource)}<br>권고: ${esc(it.remediation||'-')}</div>
+    </div>`).join('');
+  document.getElementById('results').innerHTML = html;
 }
 function setMode(m){
   currentMode = m;

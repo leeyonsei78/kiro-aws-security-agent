@@ -13,6 +13,7 @@ class CloudTrailEnabledCheck(BaseComplianceCheck):
     title = "다중 리전 CloudTrail 미구성"
     severity = Severity.HIGH
     service = "cloudtrail"
+    category = "감사/로깅"
     remediation = "모든 리전을 포함하는(IsMultiRegionTrail=true) CloudTrail을 최소 1개 구성하고 로깅을 활성화하세요."
     standards = ("KISA CII(감사/로깅)", "CIS AWS 3.1")
 

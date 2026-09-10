@@ -13,7 +13,7 @@ import logging
 import sys
 
 from .config import load_config
-from .core import run_event, run_poll
+from .core import compliance_report, run_event, run_poll
 from .models import Severity
 
 
@@ -23,6 +23,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-severity", help="INFORMATIONAL|LOW|MEDIUM|HIGH|CRITICAL")
     parser.add_argument("--collectors", help="쉼표구분 (예: guardduty,securityhub)")
     parser.add_argument("--event", help="EventBridge 이벤트 JSON 파일 경로(실시간 경로 테스트)")
+    parser.add_argument("--compliance-report", action="store_true",
+                        help="컴플라이언스 점검 후 점수/리포트 출력(AWS 자격증명 필요)")
+    parser.add_argument("--json", action="store_true", help="리포트를 JSON으로 출력")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
 
@@ -38,6 +41,16 @@ def main(argv: list[str] | None = None) -> int:
         cfg.min_severity = Severity.from_name(args.min_severity)
     if args.collectors:
         cfg.collectors = [c.strip() for c in args.collectors.split(",") if c.strip()]
+
+    if args.compliance_report:
+        from .compliance.report import format_report_text
+
+        report = compliance_report(cfg)
+        if args.json:
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+        else:
+            print(format_report_text(report))
+        return 0
 
     if args.event:
         with open(args.event, "r", encoding="utf-8") as fh:

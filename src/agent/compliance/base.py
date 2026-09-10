@@ -34,6 +34,7 @@ class BaseComplianceCheck(abc.ABC):
         title: 짧은 제목.
         severity: 위반 시 심각도.
         service: 점검에 사용하는 boto3 서비스명 (client 생성용).
+        category: 점검 영역 분류 (예: "데이터 보호", "계정 관리", "네트워크", "감사/로깅").
         remediation: 권고 조치.
         standards: 참조 표준/근거 (예: ["KISA CII", "CIS AWS"]).
     """
@@ -42,6 +43,7 @@ class BaseComplianceCheck(abc.ABC):
     title: str = "base check"
     severity: Severity = Severity.MEDIUM
     service: str = ""
+    category: str = "기타"
     remediation: str = ""
     standards: tuple[str, ...] = ()
 

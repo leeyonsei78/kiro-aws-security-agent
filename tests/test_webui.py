@@ -83,9 +83,11 @@ def test_index_html_served():
     assert "알림 미리보기" in INDEX_HTML         # 알림 결과 섹션
     assert "자동 대응" in INDEX_HTML             # 대응 결과 섹션
     assert "컴플라이언스 점검 항목" in INDEX_HTML  # 컴플라이언스 탭
-    assert "renderCompliance" in INDEX_HTML      # 컴플라이언스 렌더 함수
+    assert "showChecks" in INDEX_HTML            # 항목 목록 함수
+    assert "showReport" in INDEX_HTML            # 리포트 함수
+    assert "/api/compliance-report" in INDEX_HTML  # 리포트 엔드포인트
     assert "analyze()" in INDEX_HTML
-    print("OK index html contains endpoints, pipeline mode, compliance tab & result sections")
+    print("OK index html contains endpoints, pipeline mode, compliance tab/report & result sections")
 
 
 def test_meta_includes_compliance_checks():
