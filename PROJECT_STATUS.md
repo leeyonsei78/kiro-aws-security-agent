@@ -1,11 +1,52 @@
 # 프로젝트 진행 상태 (이어서 작업용)
 
 > 다음 세션에서 이 파일을 먼저 읽으면 어디까지 했고 무엇을 이어서 할지 바로 파악됩니다.
-> 최종 업데이트: 2026-09-09 · 저장소: https://github.com/leeyonsei78/kiro-aws-security-agent (public)
+> 최종 업데이트: 2026-09-10 · 저장소: https://github.com/leeyonsei78/kiro-aws-security-agent (public)
 
 ---
 
-## 한 줄 요약
+## 🚀 실제 AWS 운영 진행 상황 (사용자: 실제 계정 사용 중)
+
+> **이어서 하실 때 이 섹션부터 보세요.** 아래는 코드 개발이 아니라, **실제 AWS 계정에 이 도구를 적용**하는 진행 상황입니다.
+
+### 완료한 것
+- ✅ **AWS 계정 생성** — 무료 크레딧 $100, 유효기간 182일(2027-03-10까지)
+- ✅ **예산 알림 설정** — $0.01 초과 지출 시 이메일 경고
+- ✅ **IAM 사용자** `security-agent-user` 생성 + `ReadOnlyAccess` 정책
+- ✅ **로컬 PC AWS CLI 설치 + `aws configure`** 완료 (리전 `ap-northeast-2`)
+- ✅ **자체 점검 실행 성공** → **70점 (C등급), 위반 4건**
+- ⚠️ GuardDuty/Security Hub는 **아직 안 켬**(과금 없음). 지금까지 무료 API만 사용.
+
+### 자체 점검으로 나온 위반 4건 (다음에 고칠 대상)
+| 코드 | 위반 | 심각도 | 수정 명령 |
+|------|------|:------:|-----------|
+| CA-20 | 다중 리전 CloudTrail 미구성 | HIGH | 콘솔에서 CloudTrail → "추적 생성"(다중 리전) 또는 `aws cloudtrail create-trail` + S3 버킷 |
+| CA-10 | IAM 비밀번호 정책 미흡 | MEDIUM | `aws iam update-account-password-policy --minimum-password-length 14 --require-symbols --require-numbers --require-uppercase-characters --require-lowercase-characters` |
+| CA-03 | EBS 기본 암호화 비활성화 | MEDIUM | `aws ec2 enable-ebs-encryption-by-default --region ap-northeast-2` |
+| CA-30 | 기본 보안그룹 허용 규칙 존재(sg-0db51df4b707e3bb2) | MEDIUM | 콘솔 EC2 → 해당 기본 SG → 인바운드/아웃바운드 규칙 모두 제거 |
+
+### 로컬에서 다시 점검하는 법 (재개 시 이 3줄)
+```powershell
+cd C:\kiro-aws-security-agent-main
+aws sts get-caller-identity        # 로그인 확인(키는 이미 저장됨)
+$env:AWS_REGION="ap-northeast-2"; $env:PYTHONPATH="src"; python -m agent.cli --compliance-report
+```
+> 웹 화면으로 보려면 `run.bat` 더블클릭 → http://127.0.0.1:8080
+
+### ⏭️ 실제 운영 다음 할 일 (순서 추천)
+1. **위반 4건 수정** → 다시 점검해서 점수 오르는지 확인 (위 표의 수정 명령 사용)
+2. **자동화 배포** (`deploy/sam`): `sam build && sam deploy --guided` — 매일 자동 점검 + 이메일 알림. 파라미터: `MinSeverity=MEDIUM Collectors=guardduty,securityhub,compliance NotificationEmail=<내 이메일>`. 배포하려면 로컬에 **SAM CLI** 설치 필요.
+3. (선택) **GuardDuty 30일 무료 체험** 켜서 위협 탐지 → 알림 테스트. 테스트 후 Disable로 과금 방지.
+4. 배포 시 IAM 권한: 점검만이면 read 권한, 자동 대응까지면 `iam/remediation-policy.json` 추가.
+
+### 💸 비용 안전 메모
+- 지금은 과금 요인 없음(GuardDuty 미사용). 예산 알림 설정됨.
+- GuardDuty/Security Hub는 30일 무료 후 과금 → 테스트만 하면 반드시 Disable.
+- $100 크레딧이 대부분 커버하지만 크레딧 소진/기간 만료 후 주의.
+
+---
+
+## 한 줄 요약 (도구 자체)
 
 AWS 보안 신호 + 써드파티 방화벽 로그를 **수집 → 정규화 → 필터 → 알림 → 자동 대응**하는 확장형 에이전트. 플러그인 구조, 웹 검증 콘솔, SAM/Terraform 배포, CI(단위+moto 통합)까지 완성. 현재 CI 전부 green.
 
@@ -22,7 +63,7 @@ AWS 보안 신호 + 써드파티 방화벽 로그를 **수집 → 정규화 → 
 
 ### 품질/운영
 - **리팩터링 완료**: 공통 모듈 `aws.py`(make_client), `finding_utils.py`(guardduty_remote_ip), `models.parse_ts`, firewall `util`(slug/severity). ruff(F401/F811/F841) 통과
-- **웹 검증 콘솔** (`src/agent/webui/`): 브라우저에서 로그/이벤트 붙여넣어 전체 파이프라인 확인. 두 모드(파싱·필터만 / 전체 파이프라인=알림 미리보기+대응 dry-run). AWS 자격증명 불필요.
+- **웹 검증 콘솔** (`src/agent/webui/`): 브라우저에서 확인. 탭 6개(전체 기능 개요 / 방화벽 / AWS 이벤트 / 컴플라이언스(점수 리포트) / 모니터링 대상 지정 / 용어 사전). boto3 없이 실행됨(aws.py 지연 import). Windows는 `run.bat` 더블클릭, mac/linux는 `./run.sh`. AWS 자격증명 불필요.
 - **방화벽 webhook 인증** (`webhook_auth.py`): API 키(X-Api-Key, 상수시간 비교) + IP 허용목록(CIDR). 둘 다 미설정 시 경고 후 통과.
 - **배포**: `deploy/sam/template.yaml`, `deploy/terraform/` (Lambda+IAM+SNS+EventBridge+선택 HTTP API, 인증/대응 파라미터화)
 - **CI**: `.github/workflows/ci.yml` — 단위 테스트(py3.10/3.11/3.12) + moto 통합 잡. 현재 전부 success.
