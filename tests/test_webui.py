@@ -144,6 +144,32 @@ def test_index_html_has_glossary():
     print("OK index html contains glossary tab & terms")
 
 
+def test_index_html_has_target_tab():
+    assert "모니터링 대상 지정" in INDEX_HTML
+    assert "pane-target" in INDEX_HTML
+    assert "genTarget" in INDEX_HTML
+    assert "/api/target" in INDEX_HTML
+    print("OK index html contains target tab")
+
+
+def test_target_status_and_setup():
+    from agent.config import Config
+    from agent.target import target_status, build_target_setup
+    st = target_status(Config(collectors=["guardduty", "compliance"]))
+    assert st["active_collectors"] == ["guardduty", "compliance"]
+    assert len(st["available_collectors"]) == 8
+    assert "credentials_detected" in st
+    # 설정 생성: 잘못된 collector는 제외되고, env/sam/tf가 생성됨
+    s = build_target_setup(region="us-east-1", collectors=["guardduty", "nope"],
+                           min_severity="HIGH")
+    assert s["collectors"] == ["guardduty"]
+    assert "AWS_REGION=us-east-1" in s["env"]
+    assert "MIN_SEVERITY=HIGH" in s["env"]
+    assert "Collectors=guardduty" in s["sam"]
+    assert 'region              = "us-east-1"' in s["terraform_tfvars"]
+    print("OK target status & setup generation")
+
+
 if __name__ == "__main__":
     test_preview_firewall_multi()
     test_preview_firewall_filter()
@@ -156,4 +182,6 @@ if __name__ == "__main__":
     test_capabilities_content()
     test_capabilities_have_beginner_descriptions()
     test_index_html_has_glossary()
+    test_index_html_has_target_tab()
+    test_target_status_and_setup()
     print("\nALL WEBUI TESTS PASSED")

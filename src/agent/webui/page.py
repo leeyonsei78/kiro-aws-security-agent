@@ -91,6 +91,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <div class="tab" data-tab="firewall" onclick="switchTab('firewall')">써드파티 방화벽 로그</div>
       <div class="tab" data-tab="event" onclick="switchTab('event')">AWS 이벤트(JSON)</div>
       <div class="tab" data-tab="compliance" onclick="switchTab('compliance')">컴플라이언스 점검 항목</div>
+      <div class="tab" data-tab="target" onclick="switchTab('target')">모니터링 대상 지정</div>
       <div class="tab" data-tab="glossary" onclick="switchTab('glossary')">용어 사전 (초보자용)</div>
     </div>
 
@@ -120,6 +121,21 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <div class="row" style="margin-top:8px">
         <button class="btn" onclick="showChecks()">점검 항목 목록</button>
         <button class="btn primary" onclick="showReport()">데모 리포트 보기</button>
+      </div>
+    </div>
+
+    <div id="pane-target" style="display:none">
+      <p class="hint" style="font-size:13px">🎯 <b>어느 AWS 계정/리전을 어떤 항목으로 모니터링할지</b> 지정합니다. 웹 콘솔은 실제 스캔을 하지 않고(자격증명 불필요), 아래에서 고른 대상을 <b>실제 배포/실행에 쓸 설정</b>(환경변수·SAM·Terraform·CLI)으로 만들어 줍니다. 그 설정으로 배포하면 해당 계정을 모니터링합니다.</p>
+      <label>리전 (예: ap-northeast-2, us-east-1)</label>
+      <input id="tg-region" type="text" placeholder="ap-northeast-2"
+        style="width:100%;background:#0b1220;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:13px">
+      <label>모니터링할 항목 (Collector) — 체크</label>
+      <div id="tg-collectors" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+      <label style="margin-top:12px">최소 심각도(이 이상만 알림)</label>
+      <select id="tg-sev"></select>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" onclick="genTarget()">설정 만들기</button>
+        <button class="btn" onclick="showTarget()">현재 대상 상태</button>
       </div>
     </div>
 
@@ -212,14 +228,84 @@ function switchTab(t){
   document.getElementById('pane-firewall').style.display = t==='firewall'?'block':'none';
   document.getElementById('pane-event').style.display = t==='event'?'block':'none';
   document.getElementById('pane-compliance').style.display = t==='compliance'?'block':'none';
+  document.getElementById('pane-target').style.display = t==='target'?'block':'none';
   document.getElementById('pane-glossary').style.display = t==='glossary'?'block':'none';
-  // 조회형 탭(개요/컴플라이언스/용어)에서는 모드/필터/분석 컨트롤 숨김
-  const noControls = (t==='compliance' || t==='overview' || t==='glossary');
+  // 조회형/설정형 탭에서는 파싱용 모드/필터/분석 컨트롤 숨김
+  const noControls = (t==='compliance' || t==='overview' || t==='glossary' || t==='target');
   document.getElementById('controls-row').style.display = noControls?'none':'flex';
   document.getElementById('mode-hint').style.display = noControls?'none':'block';
   if (t==='compliance') showChecks();
   if (t==='overview') showOverview();
   if (t==='glossary') showGlossary();
+  if (t==='target') initTarget();
+}
+
+let TARGET_INIT = false;
+async function initTarget(){
+  // collector 체크박스와 심각도 옵션을 1회 채우고 현재 상태 표시
+  if (!TARGET_INIT){
+    let st = null;
+    try { st = await (await fetch('/api/target')).json(); } catch(e) {}
+    const avail = (st && st.available_collectors) || [];
+    document.getElementById('tg-collectors').innerHTML = avail.map(c=>{
+      const checked = (st.active_collectors||[]).includes(c.name) ? 'checked' : '';
+      const scan = c.account_scan ? '' : ' (수신형)';
+      return `<label style="display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--text);margin:0">
+        <input type="checkbox" value="${esc(c.name)}" ${checked}> ${esc(c.label)}${scan}</label>`;
+    }).join('');
+    document.getElementById('tg-sev').innerHTML = (META.severities||["MEDIUM"]).map(s=>`<option ${s===(st&&st.min_severity||'MEDIUM')?'selected':''}>${s}</option>`).join('');
+    if (st && st.region_set) document.getElementById('tg-region').value = st.region;
+    TARGET_INIT = true;
+  }
+  showTarget();
+}
+
+async function showTarget(){
+  document.getElementById('err').textContent='';
+  let st;
+  try { st = await (await fetch('/api/target')).json(); }
+  catch(e){ document.getElementById('err').textContent='대상 상태 로드 실패: '+e; return; }
+  document.getElementById('summary').innerHTML =
+    `<span>현재 리전: <b>${esc(st.region)}</b></span>`+
+    `<span>활성 항목: <b>${(st.active_collectors||[]).length}</b></span>`+
+    `<span>최소 심각도: <b>${esc(st.min_severity)}</b></span>`+
+    `<span>자격증명 감지: <b>${st.credentials_detected?'예':'아니오(웹은 불필요)'}</b></span>`;
+  let html = `<div class="finding"><div class="meta">${esc(st.note)}</div></div>`;
+  html += '<h3 class="sec">현재 대상 요약</h3>';
+  html += `<div class="finding"><div class="meta">
+      계정: ${esc(st.account)}<br>리전: <code>${esc(st.region)}</code><br>
+      활성 Collector: ${(st.active_collectors||[]).map(c=>`<code>${esc(c)}</code>`).join(' ')}</div></div>`;
+  document.getElementById('results').innerHTML = html;
+}
+
+async function genTarget(){
+  document.getElementById('err').textContent='';
+  const region = document.getElementById('tg-region').value.trim();
+  const cols = Array.from(document.querySelectorAll('#tg-collectors input:checked')).map(x=>x.value);
+  const sev = document.getElementById('tg-sev').value;
+  if (cols.length===0){ document.getElementById('err').textContent='최소 1개 항목을 선택하세요.'; return; }
+  try {
+    const s = await (await fetch('/api/target',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({region, collectors:cols, min_severity:sev})})).json();
+    renderTargetSetup(s);
+  } catch(e){ document.getElementById('err').textContent='설정 생성 실패: '+e; }
+}
+
+function block(title, code){
+  return `<h3 class="sec">${esc(title)}</h3><div class="notif"><pre>${esc(code)}</pre></div>`;
+}
+function renderTargetSetup(s){
+  document.getElementById('summary').innerHTML =
+    `<span>대상 리전: <b>${esc(s.region)}</b></span>`+
+    `<span>항목: <b>${(s.collectors||[]).length}</b></span>`+
+    `<span>최소 심각도: <b>${esc(s.min_severity)}</b></span>`;
+  let html = `<div class="finding"><div class="meta">아래 설정 중 <b>사용하는 배포 방식</b>의 값을 복사해 적용하면, 지정한 계정/리전을 모니터링합니다.</div></div>`;
+  html += block('① 환경변수 (.env / 컨테이너)', s.env);
+  html += block('② CLI 실행 — Windows PowerShell', s.cli_powershell);
+  html += block('② CLI 실행 — macOS/Linux', s.cli_bash);
+  html += block('③ SAM 배포', s.sam);
+  html += block('④ Terraform (terraform.tfvars)', s.terraform_tfvars);
+  document.getElementById('results').innerHTML = html;
 }
 
 const GLOSSARY = [

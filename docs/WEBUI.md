@@ -34,6 +34,7 @@
 - **써드파티 방화벽 로그**: 방화벽 로그 한 줄을 붙여넣어 파싱/정규화 체험
 - **AWS 이벤트(JSON)**: GuardDuty/Security Hub 이벤트로 전체 파이프라인 체험
 - **컴플라이언스 점검 항목**: 16개 점검 항목 카탈로그 + 점수/등급 데모 리포트
+- **모니터링 대상 지정**: 어느 리전·어떤 항목으로 모니터링할지 고르면 → 실제 배포/실행용 설정(환경변수·SAM·Terraform·CLI)을 생성. 웹은 스캔하지 않고 설정만 만들며, 그 설정으로 배포하면 해당 계정이 대상이 됨.
 - **용어 사전 (초보자용)**: GuardDuty·IAM·Security Group·dry-run 등 21개 용어를 쉬운 말로 설명
 
 각 탭에서 실제 동작을 테스트합니다:
@@ -55,6 +56,8 @@
 | GET | `/api/capabilities` | 전체 기능 개요(collector/notifier/remediator/방화벽 벤더/컴플라이언스 수) |
 | GET | `/api/meta` | 지원 벤더/이벤트타입/심각도/컴플라이언스 항목 목록 |
 | GET | `/api/compliance-report` | 컴플라이언스 데모 리포트(점수/등급/카테고리 집계) |
+| GET | `/api/target` | 현재 모니터링 대상 상태(리전/활성 collector/자격증명 유무) |
+| POST | `/api/target` | 대상 지정 → 적용용 설정 생성: `{"region","collectors":[...],"min_severity"}` |
 | POST | `/api/firewall` | 방화벽 파싱·필터: `{"raw": "<로그>", "vendor": "auto", "min_severity": "MEDIUM"}` |
 | POST | `/api/event` | 이벤트 파싱·필터: `{"event": {<EventBridge JSON>}, "min_severity": "MEDIUM"}` |
 | POST | `/api/pipeline` | 전체 파이프라인: 위 입력 + `"kind": "firewall"\|"event"` → 알림/대응 포함 |

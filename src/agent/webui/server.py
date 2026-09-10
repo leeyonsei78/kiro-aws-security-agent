@@ -28,6 +28,7 @@ from ..core import preview_parse, preview_pipeline
 from ..firewall.registry import available_vendors
 from ..models import Severity
 from ..registry import EVENT_TYPE_TO_COLLECTOR, capabilities
+from ..target import build_target_setup, target_status
 from .page import INDEX_HTML
 
 logger = logging.getLogger(__name__)
@@ -101,6 +102,9 @@ class Handler(BaseHTTPRequestHandler):
             caps["compliance_count"] = len(all_checks())
             caps["event_types"] = sorted(EVENT_TYPE_TO_COLLECTOR.keys())
             self._send_json(caps)
+        elif self.path == "/api/target":
+            # 현재 모니터링 대상 상태(리전/활성 collector/자격증명 유무)
+            self._send_json(target_status(load_config()))
         else:
             self._send_json({"error": "not found"}, status=404)
 
@@ -113,11 +117,28 @@ class Handler(BaseHTTPRequestHandler):
                 self._handle_event(payload)
             elif self.path == "/api/pipeline":
                 self._handle_pipeline(payload)
+            elif self.path == "/api/target":
+                self._handle_target(payload)
             else:
                 self._send_json({"error": "not found"}, status=404)
         except Exception as e:  # noqa: BLE001 - UI에 오류 메시지 전달
             logger.exception("요청 처리 실패")
             self._send_json({"ok": False, "error": str(e)}, status=500)
+
+    def _handle_target(self, payload: dict):
+        """대상 지정 → 적용용 설정(env/SAM/TF) 생성."""
+        region = (payload.get("region") or "").strip()
+        collectors = payload.get("collectors") or []
+        if isinstance(collectors, str):
+            collectors = [c.strip() for c in collectors.split(",") if c.strip()]
+        min_sev = payload.get("min_severity") or "MEDIUM"
+        lookback = int(payload.get("lookback_minutes") or 60)
+        setup = build_target_setup(
+            region=region, collectors=collectors,
+            min_severity=min_sev, lookback_minutes=lookback,
+        )
+        setup["ok"] = True
+        self._send_json(setup)
 
     def _firewall_payload(self, payload: dict) -> dict:
         raw = payload.get("raw", "")
