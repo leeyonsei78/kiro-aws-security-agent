@@ -12,6 +12,7 @@ from typing import Callable
 from .collectors.access_analyzer import AccessAnalyzerCollector
 from .collectors.base import BaseCollector
 from .collectors.cloudtrail import CloudTrailCollector
+from .collectors.compliance import ComplianceCollector
 from .collectors.firewall_syslog import FirewallSyslogCollector
 from .collectors.guardduty import GuardDutyCollector
 from .collectors.security_group import SecurityGroupCollector
@@ -46,6 +47,7 @@ _COLLECTOR_FACTORIES: dict[str, Callable[[Config], BaseCollector]] = {
         distinct_ports_threshold=cfg.flowlogs_distinct_ports_threshold,
     ),
     "firewall_syslog": lambda cfg: FirewallSyslogCollector(region=cfg.region),
+    "compliance": lambda cfg: ComplianceCollector(region=cfg.region),
 }
 
 # 이름 -> remediator 팩토리 (설정으로 dry_run/allowed_types 및 remediator별 인자 주입)

@@ -81,6 +81,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
     <div class="tabs">
       <div class="tab active" data-tab="firewall" onclick="switchTab('firewall')">써드파티 방화벽 로그</div>
       <div class="tab" data-tab="event" onclick="switchTab('event')">AWS 이벤트(JSON)</div>
+      <div class="tab" data-tab="compliance" onclick="switchTab('compliance')">컴플라이언스 점검 항목</div>
     </div>
 
     <div id="pane-firewall">
@@ -97,7 +98,11 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <div class="samples" id="ev-samples"></div>
     </div>
 
-    <div class="row">
+    <div id="pane-compliance" style="display:none">
+      <p class="hint" style="font-size:13px">이 에이전트가 점검하는 <b>AWS 컴플라이언스 항목</b> 목록입니다. 실제 점검은 배포된 에이전트가 AWS 계정을 스캔해 위반을 finding으로 산출합니다(웹 콘솔은 항목 카탈로그만 표시). 항목 체계는 KISA 기반 <a href="https://github.com/cdppcorp/KESE-KIT" style="color:var(--accent)">KESE-KIT</a>(MIT)의 클라우드 점검 코드 방식을 참고했습니다.</p>
+    </div>
+
+    <div class="row" id="controls-row">
       <div>
         <label style="margin:0">모드</label>
         <div class="toggle" id="mode-toggle">
@@ -112,7 +117,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <button class="btn primary" onclick="analyze()">분석</button>
       <button class="btn" onclick="clearAll()">지우기</button>
     </div>
-    <div class="hint">전체 파이프라인 모드는 <b>알림 메시지 미리보기</b>와 <b>자동 대응 dry-run 계획</b>까지 보여줍니다(실제 전송·변경 없음).</div>
+    <div class="hint" id="mode-hint">전체 파이프라인 모드는 <b>알림 메시지 미리보기</b>와 <b>자동 대응 dry-run 계획</b>까지 보여줍니다(실제 전송·변경 없음).</div>
     <div class="err" id="err"></div>
   </section>
 
@@ -179,6 +184,25 @@ function switchTab(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
   document.getElementById('pane-firewall').style.display = t==='firewall'?'block':'none';
   document.getElementById('pane-event').style.display = t==='event'?'block':'none';
+  document.getElementById('pane-compliance').style.display = t==='compliance'?'block':'none';
+  // 컴플라이언스 탭에서는 모드/필터/분석 컨트롤 숨기고 항목 목록 자동 표시
+  const isComp = t==='compliance';
+  document.getElementById('controls-row').style.display = isComp?'none':'flex';
+  document.getElementById('mode-hint').style.display = isComp?'none':'block';
+  if (isComp) renderCompliance(); 
+}
+
+function renderCompliance(){
+  const checks = META.compliance_checks || [];
+  document.getElementById('summary').innerHTML =
+    `<span>점검 항목: <b>${checks.length}</b>개</span><span>근거: <b>KISA CII / CIS AWS</b></span>`;
+  const rows = checks.map(c=>`<div class="finding">
+      <div class="top"><span class="sev ${c.severity}">${c.severity}</span>
+        <span class="title">[${esc(c.code)}] ${esc(c.title)}</span>
+        <span class="badge">${esc(c.service)}</span></div>
+      <div class="meta">근거: ${esc((c.standards||[]).join(', ')||'-')}<br>권고: ${esc(c.remediation||'-')}</div>
+    </div>`).join('');
+  document.getElementById('results').innerHTML = rows || '<div class="empty">등록된 점검 항목이 없습니다.</div>';
 }
 function setMode(m){
   currentMode = m;

@@ -27,7 +27,7 @@
 
 ## 사용 가능한 collector / notifier / remediator
 
-- **collectors**: `guardduty`, `securityhub`, `security_group`, `access_analyzer`, `cloudtrail`, `vpc_flow_logs`, `firewall_syslog`
+- **collectors**: `guardduty`, `securityhub`, `security_group`, `access_analyzer`, `cloudtrail`, `vpc_flow_logs`, `firewall_syslog`, `compliance`
 - **notifiers**: `slack`, `email_sns`, `stdout`
 - **remediators**:
   - `nacl_block_ip` — brute-force 원격 IP를 NACL deny
@@ -42,6 +42,23 @@
 > **`vpc_flow_logs` collector**: VPC Flow Logs가 CloudWatch Logs로 적재된 로그그룹에 Logs Insights 쿼리를 실행해 대량 REJECT/포트 스캔을 감지합니다. `FLOWLOGS_LOG_GROUP` 설정이 필수이며, 미설정 시 아무 동작도 하지 않습니다.
 >
 > **`ec2_quarantine` remediator**: 인스턴스를 종료/중지하지 않고 격리 SG로만 교체해 포렌식을 보존합니다. 원래 SG 목록은 감사 로그(`OriginalGroups`)에 남겨 롤백 가능합니다. `QUARANTINE_SG_ID` 미설정 시 대상에서 제외됩니다.
+
+## 컴플라이언스 점검 (`compliance`)
+
+AWS 계정 구성을 **규칙 기반으로 점검**해 위반을 finding으로 산출합니다(폴링 전용, 구성 스캔). GuardDuty/Security Hub가 실시간으로 못 잡는 "하드닝/구성" 관점을 커버합니다. 점검 항목 코드 체계(`CA-nn`)는 KISA 기반 [KESE-KIT](https://github.com/cdppcorp/KESE-KIT)(MIT)의 클라우드 점검 방식을 참고했고, 점검 로직은 boto3로 새로 구현했습니다.
+
+| 코드 | 항목 | 심각도 | 서비스 |
+|------|------|:------:|--------|
+| `CA-01` | S3 계정 수준 퍼블릭 액세스 차단 미설정 | HIGH | s3 |
+| `CA-02` | S3 버킷 기본 암호화 미설정 | MEDIUM | s3 |
+| `CA-10` | IAM 비밀번호 정책 미흡 | MEDIUM | iam |
+| `CA-11` | 루트 계정 액세스 키 존재 | CRITICAL | iam |
+| `CA-12` | 콘솔 사용자 MFA 미설정 | HIGH | iam |
+| `CA-20` | 다중 리전 CloudTrail 미구성 | HIGH | cloudtrail |
+
+- 활성화: `COLLECTORS`에 `compliance` 추가 (예: `COLLECTORS=guardduty,securityhub,compliance`)
+- 새 항목은 `src/agent/compliance/`에 체크 클래스를 추가하고 `compliance/registry.py`에 등록하면 됩니다([EXTENDING.md](EXTENDING.md) 참고).
+- 필요한 읽기 권한은 [iam/agent-policy.json](../iam/agent-policy.json)의 `ComplianceRead`에 포함되어 있습니다.
 
 ## 써드파티 방화벽 수신 (`firewall_syslog`)
 

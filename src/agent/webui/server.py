@@ -21,6 +21,7 @@ import json
 import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from ..compliance.registry import all_checks
 from ..config import load_config
 from ..core import preview_parse, preview_pipeline
 from ..firewall.registry import available_vendors
@@ -81,6 +82,12 @@ class Handler(BaseHTTPRequestHandler):
                 "vendors": ["auto"] + available_vendors(),
                 "event_types": sorted(EVENT_TYPE_TO_COLLECTOR.keys()),
                 "severities": [s.name for s in Severity],
+                "compliance_checks": [
+                    {"code": c.code, "title": c.title, "severity": c.severity.name,
+                     "service": c.service, "standards": list(c.standards),
+                     "remediation": c.remediation}
+                    for c in all_checks()
+                ],
             })
         else:
             self._send_json({"error": "not found"}, status=404)

@@ -82,8 +82,20 @@ def test_index_html_served():
     assert "전체 파이프라인" in INDEX_HTML       # 모드 토글
     assert "알림 미리보기" in INDEX_HTML         # 알림 결과 섹션
     assert "자동 대응" in INDEX_HTML             # 대응 결과 섹션
+    assert "컴플라이언스 점검 항목" in INDEX_HTML  # 컴플라이언스 탭
+    assert "renderCompliance" in INDEX_HTML      # 컴플라이언스 렌더 함수
     assert "analyze()" in INDEX_HTML
-    print("OK index html contains endpoints, pipeline mode & result sections")
+    print("OK index html contains endpoints, pipeline mode, compliance tab & result sections")
+
+
+def test_meta_includes_compliance_checks():
+    # 서버 meta에 컴플라이언스 항목이 포함되는지(항목 카탈로그 노출)
+    from agent.compliance.registry import all_checks
+    checks = all_checks()
+    assert len(checks) >= 6
+    codes = {c.code for c in checks}
+    assert {"CA-01", "CA-10", "CA-20"} <= codes
+    print("OK compliance checks available:", sorted(codes))
 
 
 if __name__ == "__main__":
@@ -93,4 +105,5 @@ if __name__ == "__main__":
     test_preview_event_guardduty()
     test_preview_event_unsupported()
     test_index_html_served()
+    test_meta_includes_compliance_checks()
     print("\nALL WEBUI TESTS PASSED")

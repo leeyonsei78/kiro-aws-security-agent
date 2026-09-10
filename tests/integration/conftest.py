@@ -20,7 +20,9 @@ except ImportError:
     _DEPS_OK = False
 
 # 이 디렉터리의 테스트 파일들 (deps 없으면 수집 제외)
-collect_ignore = [] if _DEPS_OK else ["test_moto_ec2.py", "test_moto_s3_iam.py"]
+collect_ignore = [] if _DEPS_OK else [
+    "test_moto_ec2.py", "test_moto_s3_iam.py", "test_moto_compliance.py",
+]
 
 
 if _DEPS_OK:

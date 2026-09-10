@@ -21,7 +21,7 @@ AWS 보안 서비스/장비의 findings(위협 탐지 결과)를 **수집 → �
 
 | 구분 | 지원 |
 |------|------|
-| Collector | Amazon GuardDuty, AWS Security Hub, Security Group(위험 개방 감지), IAM Access Analyzer(외부 공유), CloudTrail(위험 API 감지), VPC Flow Logs(이상 트래픽), 써드파티 방화벽(Palo Alto / Fortinet / Check Point / CEF) |
+| Collector | Amazon GuardDuty, AWS Security Hub, Security Group(위험 개방 감지), IAM Access Analyzer(외부 공유), CloudTrail(위험 API 감지), VPC Flow Logs(이상 트래픽), 써드파티 방화벽(Palo Alto / Fortinet / Check Point / CEF), 컴플라이언스 점검(KISA/CIS 기반 CA 항목) |
 | Notifier | Slack (Incoming Webhook), Email (SNS) |
 | Remediator | `nacl_block_ip`, `sg_revoke_ingress`, `s3_public_block`, `waf_ipset_block`, `iam_disable_key`, `ec2_quarantine` |
 | 실행 | AWS Lambda (스케줄 폴링 / 실시간 이벤트 / API Gateway HTTP 수신), 로컬 CLI |
@@ -135,6 +135,10 @@ PYTHONPATH=src python -m pytest tests/integration -v
 - **통합 테스트**: `moto`로 실제 AWS 호출 경로(`collect` / remediator `_apply`)를 검증 (`tests/integration/`). moto 미설치 시 자동 skip.
 
 push/PR 시 [GitHub Actions CI](.github/workflows/ci.yml)가 두 종류를 모두 자동 실행합니다 (단위: Python 3.10/3.11/3.12, 통합: moto 잡).
+
+## 참고 / 감사의 글
+
+- 컴플라이언스 점검(`compliance` collector) 항목 코드 체계(`CA-nn`)와 클라우드 하드닝 관점은 KISA 주요정보통신기반시설 가이드 기반 [cdppcorp/KESE-KIT](https://github.com/cdppcorp/KESE-KIT) (MIT)의 접근을 **참고**했습니다. 점검 로직은 본 프로젝트에서 boto3로 새로 구현했습니다.
 
 ## 라이선스
 

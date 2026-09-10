@@ -146,3 +146,40 @@ class MyVendorParser(BaseFirewallParser):
 - `parse_kv`는 `key="value with spaces"`의 따옴표 내부를 구분자로 취급하지 않아 **필드 인젝션에 안전**하다. 자체 파싱을 만들 때도 동일 원칙을 지킨다.
 - 한 라인 파싱이 실패해도 collector가 예외를 격리하므로, 파서는 관심 없는 라인에 `None`을 반환하면 된다.
 - 외부 입력이므로 신뢰하지 말 것: API Gateway 단에서 인증/IP 제한을 두는 것을 전제로 한다.
+
+
+## 5. 새 컴플라이언스 점검 항목 추가 (Compliance)
+
+`compliance` collector는 `src/agent/compliance/`의 체크 규칙들을 실행해 계정 구성 위반을 finding으로 산출한다. 항목 코드 체계(`CA-nn`)는 KISA 기반 [KESE-KIT](https://github.com/cdppcorp/KESE-KIT)(MIT)의 클라우드 점검 방식을 참고했다.
+
+### 단계
+
+1. `src/agent/compliance/checks_<area>.py`에 `BaseComplianceCheck` 상속:
+
+```python
+from ..models import Severity
+from .base import BaseComplianceCheck, CheckViolation
+
+class MyCheck(BaseComplianceCheck):
+    code = "CA-30"
+    title = "무엇을 점검하는지"
+    severity = Severity.HIGH
+    service = "s3"          # run()에 주입될 boto3 client 서비스명
+    remediation = "권고 조치"
+    standards = ("KISA CII", "CIS AWS x.y")
+
+    def run(self, client) -> list[CheckViolation]:
+        violations = []
+        # client로 점검 → 위반 시 CheckViolation 추가
+        return violations
+```
+
+2. `src/agent/compliance/registry.py`의 `ALL_CHECKS`에 인스턴스 등록.
+3. 필요한 읽기 권한을 `iam/agent-policy.json`의 `ComplianceRead`에 추가.
+4. 끝. collector가 서비스별 client를 만들어 자동 실행하고, 위반을 `Compliance:AWS/<code>` finding_type으로 정규화한다.
+
+### 원칙
+
+- `run()`은 위반이 없으면 **빈 목록**을 반환(정상). 예외를 던지면 collector가 격리하고 다른 체크는 계속 실행된다.
+- 설정 미조회/미설정을 "위반"으로 볼지 여부는 체크에서 판단한다(예: 정책 부재 = 위반).
+- moto가 지원하는 서비스면 `tests/integration/test_moto_compliance.py`에 통합 테스트를 추가한다.
