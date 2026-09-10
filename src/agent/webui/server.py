@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from ..compliance.registry import all_checks
@@ -166,6 +167,13 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows 콘솔 등에서 한글이 깨지지 않도록 표준 출력을 UTF-8로 재구성(가능한 경우).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # Python 3.7+
+        except Exception:  # noqa: BLE001 - 재구성 불가 환경이면 무시
+            pass
+
     parser = argparse.ArgumentParser(description="AWS Security Agent - 로컬 웹 검증 서버")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8080)
