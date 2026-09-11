@@ -171,13 +171,16 @@ Resources:
               source: ["aws.access-analyzer"]
               detail-type: ["Access Analyzer Finding"]
         # (C) 써드파티 방화벽 webhook (HTTP) - EnableFirewallEndpoint=true 일 때만
-        FirewallWebhook:
-          Type: HttpApi
-          Condition: FirewallOn
-          Properties:
-            ApiId: !Ref FirewallApi
-            Path: /firewall
-            Method: POST
+        # NOTE: SAM 은 함수 Events 항목에 Condition 을 적용하지 않으므로,
+        # 방화벽 미사용 시 아래 블록을 활성화하면 FirewallApi 미생성으로 배포가 실패한다.
+        # 방화벽 webhook 이 필요할 때만 주석을 해제하고 EnableFirewallEndpoint=true 로 배포할 것.
+        # FirewallWebhook:
+        #   Type: HttpApi
+        #   Condition: FirewallOn
+        #   Properties:
+        #     ApiId: !Ref FirewallApi
+        #     Path: /firewall
+        #     Method: POST
 
   # (C) 써드파티 방화벽 webhook용 HTTP API (선택)
   FirewallApi:
