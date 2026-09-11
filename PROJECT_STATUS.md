@@ -1,7 +1,7 @@
 # 프로젝트 진행 상태 (이어서 작업용)
 
 > 다음 세션에서 이 파일을 먼저 읽으면 어디까지 했고 무엇을 이어서 할지 바로 파악됩니다.
-> 최종 업데이트: 2026-09-10 · 저장소: https://github.com/leeyonsei78/kiro-aws-security-agent (public)
+> 최종 업데이트: 2026-09-11 · 저장소: https://github.com/leeyonsei78/kiro-aws-security-agent (public)
 
 ---
 
@@ -9,13 +9,42 @@
 
 > **이어서 하실 때 이 섹션부터 보세요.** 아래는 코드 개발이 아니라, **실제 AWS 계정에 이 도구를 적용**하는 진행 상황입니다.
 
-### 완료한 것
+### ✅ 실제 배포 + Slack 알림 완료! (2026-09-11)
+- ✅ **SAM 배포 성공** — 스택 `security-agent` (리전 `ap-northeast-2`, 계정 `441186133000`)
+  - Lambda: `security-agent-agent`, SNS: `security-agent-security-alerts`
+  - EventBridge 규칙 4종(ScheduledPoll `rate(1 hour)` + 실시간 이벤트) 생성됨
+  - 배포 파라미터: `Collectors=compliance`, `SlackWebhookUrl=***`, `RemediationEnabled=false`
+- ✅ **Slack 자동 알림 작동 확인** — 워크스페이스 "AWS 보안 점검"(`aws-gip8887.slack.com`), 채널 `#aws-보안-점검-전체`
+  - `aws lambda invoke`로 테스트 → `matched:2` (CA-10, CA-30) → Slack 메시지 도착 확인 ✅
+- ⚠️ 매시간 자동 실행 중. 무료 범위 유지(compliance만, GuardDuty/Security Hub 미사용).
+
+### 배포/테스트 재현 명령 (로컬 PC, 경로 C:\kiro-aws-security-agent)
+```powershell
+# 배포 (URL은 재발급한 새 Slack Webhook 직접 입력, --guided 대신 파라미터 직접 전달이 안전)
+cd C:\kiro-aws-security-agent\deploy\sam
+sam build
+sam deploy --stack-name security-agent --region ap-northeast-2 --resolve-s3 `
+  --capabilities CAPABILITY_IAM --no-confirm-changeset `
+  --parameter-overrides "Collectors=compliance" "SlackWebhookUrl=<새URL>" "RemediationEnabled=false"
+
+# Lambda 직접 실행(알림 테스트)
+aws lambda invoke --function-name security-agent-agent --region ap-northeast-2 `
+  --payload '{}' --cli-binary-format raw-in-base64-out out.json
+Get-Content out.json
+```
+
+### 배포 시 겪은 이슈와 해결(재발 방지 메모)
+- **cp949 UnicodeDecodeError** (`sam build`): samconfig.toml 한글 주석 때문 → 영문화로 해결(커밋 2e69846).
+- **Unresolved resource dependencies [FirewallApi]** (`sam deploy`): SAM은 함수 `Events` 항목에 `Condition`을 적용하지 않아, 방화벽 미사용 시에도 `FirewallWebhook` 이벤트가 `FirewallApi`를 참조 → 배포 실패. `FirewallWebhook` 이벤트 주석 처리로 해결(브랜치 `fix/firewall-webhook-condition`, PR #1).
+- **AccessDenied cloudformation:CreateChangeSet**: `security-agent-user`가 `ReadOnlyAccess`만 있어 배포 권한 없음 → 배포용 정책(AdministratorAccess 또는 CloudFormation/Lambda/IAM/S3/Events/SNS FullAccess) 추가로 해결.
+- **Slack Webhook URL 채팅 노출** → 재발급 필요(이전 URL 폐기). 배포 시 새 URL 사용.
+
+### 이전 완료 항목
 - ✅ **AWS 계정 생성** — 무료 크레딧 $100, 유효기간 182일(2027-03-10까지)
 - ✅ **예산 알림 설정** — $0.01 초과 지출 시 이메일 경고
-- ✅ **IAM 사용자** `security-agent-user` 생성 + `ReadOnlyAccess` 정책
+- ✅ **IAM 사용자** `security-agent-user` 생성 + `ReadOnlyAccess` 정책(+배포용 정책 추가함)
 - ✅ **로컬 PC AWS CLI 설치 + `aws configure`** 완료 (리전 `ap-northeast-2`)
 - ✅ **자체 점검 실행 성공** → **70점 (C등급), 위반 4건**
-- ⚠️ GuardDuty/Security Hub는 **아직 안 켬**(과금 없음). 지금까지 무료 API만 사용.
 
 ### 자체 점검으로 나온 위반 4건 (다음에 고칠 대상)
 | 코드 | 위반 | 심각도 | 수정 명령 |
@@ -34,10 +63,12 @@ $env:AWS_REGION="ap-northeast-2"; $env:PYTHONPATH="src"; python -m agent.cli --c
 > 웹 화면으로 보려면 `run.bat` 더블클릭 → http://127.0.0.1:8080
 
 ### ⏭️ 실제 운영 다음 할 일 (순서 추천)
-1. **위반 4건 수정** → 다시 점검해서 점수 오르는지 확인 (위 표의 수정 명령 사용)
-2. **자동화 배포** (`deploy/sam`): `sam build && sam deploy --guided` — 매일 자동 점검 + 이메일 알림. 파라미터: `MinSeverity=MEDIUM Collectors=guardduty,securityhub,compliance NotificationEmail=<내 이메일>`. 배포하려면 로컬에 **SAM CLI** 설치 필요.
-3. (선택) **GuardDuty 30일 무료 체험** 켜서 위협 탐지 → 알림 테스트. 테스트 후 Disable로 과금 방지.
-4. 배포 시 IAM 권한: 점검만이면 read 권한, 자동 대응까지면 `iam/remediation-policy.json` 추가.
+1. **PR #1 머지** — `fix/firewall-webhook-condition`(배포 버그 수정)을 `main`에 머지. 안 하면 `main`에서 재배포 시 FirewallApi 오류 재발.
+2. **위반 4건 수정** → 다시 점검해서 점수 오르는지 확인 (위 표의 수정 명령 사용).
+   - 단, `security-agent-user`에 수정용 쓰기 권한 필요(현재 배포용 권한 추가된 상태).
+3. **Slack 모바일 앱** — 워크스페이스 "AWS 보안 점검"(`aws-gip8887.slack.com`, 이메일 `leeyonsei78@gmail.com`)에 로그인 시도 중. 비번 로그인 안 될 경우 "이메일로 로그인(매직링크)" 사용 권장. 로그인 후 `#aws-보안-점검-전체` 채널 알림을 "모든 메시지"로 설정.
+4. (선택) **GuardDuty 30일 무료 체험** 켜서 위협 탐지 → 배포 파라미터 `Collectors`에 `guardduty` 추가. 테스트 후 Disable로 과금 방지.
+5. (선택) 배포 파라미터에 `NotificationEmail=<내 이메일>` 추가 시 SNS 이메일 알림도 병행 가능.
 
 ### 💸 비용 안전 메모
 - 지금은 과금 요인 없음(GuardDuty 미사용). 예산 알림 설정됨.
