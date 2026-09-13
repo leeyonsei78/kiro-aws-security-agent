@@ -74,6 +74,10 @@ src/agent/
     waf_ipset_block.py   # 악성 IP를 WAF IPSet에 추가(앱 계층 차단)
     iam_disable_key.py   # 침해 의심 IAM 액세스 키 비활성화
     ec2_quarantine.py    # 침해 의심 EC2를 격리 SG로 교체
+  academy/             # 화이트해커(블루팀) 양성 프로그램
+    curriculum.py      # 학습 모듈(공격 개념 + MITRE ATT&CK + 탐지 규칙 매핑)
+    labs.py            # 안전한 실습 랩(취약설정→탐지→수정, 자동 실행 안 함)
+    format.py          # CLI 텍스트 출력 포매터
   webui/               # 로컬 웹 검증 콘솔 (http.server + 단일 HTML)
     server.py          # 검증 서버
     page.py            # UI 페이지
@@ -109,7 +113,7 @@ PYTHONPATH=src python -m agent.webui.server        # http://127.0.0.1:8080
 $env:PYTHONPATH="src"; python -m agent.webui.server
 ```
 
-접속하면 **전체 기능 개요 · 방화벽 · AWS 이벤트 · 컴플라이언스 · 용어 사전** 5개 탭이 있으며, 각 화면에서 무엇을 점검/수집하는지 설명을 제공합니다.
+접속하면 **전체 기능 개요 · 방화벽 · AWS 이벤트 · 컴플라이언스 · 모니터링 대상 지정 · 화이트해커 양성 · 용어 사전** 7개 탭이 있으며, 각 화면에서 무엇을 점검/수집하는지 설명을 제공합니다.
 
 - **파싱·필터만** 모드: 정규화된 finding과 심각도 필터 통과/제외 확인
 - **전체 파이프라인** 모드: 위에 더해 **알림 메시지 미리보기**(Slack/Email/stdout)와 **자동 대응 dry-run 계획**(NACL/SG/S3/WAF/IAM/EC2)까지 — 실제 전송·변경은 없음
@@ -124,6 +128,21 @@ $env:PYTHONPATH="src"; python -m agent.webui.server
 Lambda + IAM + SNS + EventBridge(스케줄/실시간) + (선택)방화벽 HTTP API를 한 번에 생성. 절차는 [docs/DEPLOY.md](docs/DEPLOY.md).
 
 자세한 설정은 [docs/CONFIG.md](docs/CONFIG.md) 참고.
+
+
+## 화이트해커(블루팀) 양성 프로그램
+
+"공격을 알아야 방어한다." 보안팀이 공격 기법을 **방어자 관점**에서 학습하고, 각 공격이 이 에이전트의 어떤 탐지 규칙(`CA-`/`SC-`/`ZT-`/GuardDuty)으로 잡히는지 연결하며, **안전한 실습 랩**(취약 설정 만들기 → 탐지 → 수정)으로 업무에 바로 적용합니다. 학습 모듈 8개 + 실습 랩 7개, MITRE ATT&CK 매핑 포함.
+
+```bash
+# CLI
+PYTHONPATH=src python -m agent.cli --academy          # 학습 모듈 목록
+PYTHONPATH=src python -m agent.cli --module M02       # 모듈 상세
+PYTHONPATH=src python -m agent.cli --list-labs        # 실습 랩 목록
+PYTHONPATH=src python -m agent.cli --lab LAB-SG-OPEN  # 실습 계획(명령 자동 실행 안 함)
+```
+
+웹 콘솔의 **화이트해커 양성** 탭에서도 볼 수 있습니다. 실제 익스플로잇/공격 코드는 제공하지 않으며, 모든 실습은 **본인 소유 테스트 계정**에서만 수행합니다. 자세한 내용은 [docs/ACADEMY.md](docs/ACADEMY.md).
 
 
 ## 개발 / 테스트
