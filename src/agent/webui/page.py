@@ -92,6 +92,7 @@ INDEX_HTML = r"""<!DOCTYPE html>
       <div class="tab" data-tab="event" onclick="switchTab('event')">AWS 이벤트(JSON)</div>
       <div class="tab" data-tab="compliance" onclick="switchTab('compliance')">컴플라이언스 점검 항목</div>
       <div class="tab" data-tab="target" onclick="switchTab('target')">모니터링 대상 지정</div>
+      <div class="tab" data-tab="academy" onclick="switchTab('academy')">화이트해커 양성</div>
       <div class="tab" data-tab="glossary" onclick="switchTab('glossary')">용어 사전 (초보자용)</div>
     </div>
 
@@ -137,6 +138,15 @@ INDEX_HTML = r"""<!DOCTYPE html>
         <button class="btn primary" onclick="genTarget()">설정 만들기</button>
         <button class="btn" onclick="showTarget()">현재 대상 상태</button>
       </div>
+    </div>
+
+    <div id="pane-academy" style="display:none">
+      <p class="hint" style="font-size:13px">🎓 <b>화이트해커(블루팀) 양성 프로그램.</b> "공격을 알아야 방어한다"는 원칙으로, 각 공격 유형을 <b>방어자 관점</b>에서 배우고(개념 + MITRE ATT&CK), 이 에이전트의 <b>어떤 탐지 규칙</b>이 잡는지 연결하며, <b>안전한 실습 랩</b>으로 직접 취약 설정→탐지→수정 사이클을 체험합니다. 실제 익스플로잇/공격 코드는 제공하지 않습니다.</p>
+      <div class="row" style="margin-top:8px">
+        <button class="btn primary" onclick="showAcademy()">학습 모듈 불러오기</button>
+        <button class="btn" onclick="showLabs()">실습 랩 목록</button>
+      </div>
+      <div class="hint" style="margin-top:8px;border-left:3px solid var(--accent);padding-left:10px">⚠️ 모든 실습은 <b>본인 소유의 테스트 계정/리전</b>에서만 수행하세요. 이 도구는 실습 명령을 자동 실행하지 않으며, 명령은 검토 후 직접 실행합니다.</div>
     </div>
 
     <div id="pane-glossary" style="display:none">
@@ -229,15 +239,17 @@ function switchTab(t){
   document.getElementById('pane-event').style.display = t==='event'?'block':'none';
   document.getElementById('pane-compliance').style.display = t==='compliance'?'block':'none';
   document.getElementById('pane-target').style.display = t==='target'?'block':'none';
+  document.getElementById('pane-academy').style.display = t==='academy'?'block':'none';
   document.getElementById('pane-glossary').style.display = t==='glossary'?'block':'none';
   // 조회형/설정형 탭에서는 파싱용 모드/필터/분석 컨트롤 숨김
-  const noControls = (t==='compliance' || t==='overview' || t==='glossary' || t==='target');
+  const noControls = (t==='compliance' || t==='overview' || t==='glossary' || t==='target' || t==='academy');
   document.getElementById('controls-row').style.display = noControls?'none':'flex';
   document.getElementById('mode-hint').style.display = noControls?'none':'block';
   if (t==='compliance') showChecks();
   if (t==='overview') showOverview();
   if (t==='glossary') showGlossary();
   if (t==='target') initTarget();
+  if (t==='academy') showAcademy();
 }
 
 let TARGET_INIT = false;
@@ -337,6 +349,79 @@ function showGlossary(){
   document.getElementById('results').innerHTML = GLOSSARY.map(g=>`<div class="finding">
       <div class="top"><span class="title">${esc(g.term)}</span></div>
       <div class="meta">${esc(g.desc)}</div></div>`).join('');
+}
+
+let ACADEMY = null;
+async function loadAcademy(){
+  if (ACADEMY) return ACADEMY;
+  try { ACADEMY = await (await fetch('/api/academy')).json(); }
+  catch(e){ document.getElementById('err').textContent='양성 프로그램 로드 실패: '+e; }
+  return ACADEMY;
+}
+function chips(arr, cls){ return (arr||[]).map(x=>`<span class="badge">${esc(x)}</span>`).join(' '); }
+function listOf(arr){ return '<ul style="margin:4px 0 0 0;padding-left:18px">'+(arr||[]).map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>'; }
+
+async function showAcademy(){
+  document.getElementById('err').textContent='';
+  const a = await loadAcademy(); if(!a) return;
+  const mods = a.modules || [];
+  document.getElementById('summary').innerHTML =
+    `<span>학습 모듈 <b>${mods.length}</b>개</span><span>실습 랩 <b>${(a.labs||[]).length}</b>개</span><span>방어자 관점 · MITRE ATT&CK 매핑</span>`;
+  const card = (m)=>`<div class="finding">
+      <div class="top"><span class="title">[${esc(m.id)}] ${esc(m.title)}</span>
+        <span class="badge">${esc(m.level)}</span><span class="badge">${esc(m.domain)}</span></div>
+      <div class="meta">${esc(m.summary)}
+        <br><br>🔴 <b>공격자 관점</b>: ${esc(m.attacker_view)}
+        <br>🔵 <b>방어자 관점</b>: ${esc(m.blue_view)}
+        <br><br>🎯 <b>MITRE ATT&CK</b>: ${chips(m.mitre)}
+        <br>🛡️ <b>이 에이전트의 탐지</b>: ${chips(m.detected_by)}
+        <br>✅ <b>방어 조치</b>: ${listOf(m.defenses)}
+        ${(m.lab_ids&&m.lab_ids.length)?`<br>🧪 <b>연결 실습</b>: ${m.lab_ids.map(id=>`<span class="chip" onclick="showLabPlan('${jsEsc(id)}')">${esc(id)}</span>`).join(' ')}`:''}
+        ${(m.references&&m.references.length)?`<br><span style="opacity:.7">📚 ${m.references.map(esc).join(' · ')}</span>`:''}
+      </div></div>`;
+  document.getElementById('results').innerHTML = mods.map(card).join('');
+}
+
+async function showLabs(){
+  document.getElementById('err').textContent='';
+  const a = await loadAcademy(); if(!a) return;
+  const labs = a.labs || [];
+  document.getElementById('summary').innerHTML =
+    `<span>실습 랩 <b>${labs.length}</b>개</span><span>취약설정→탐지→수정 사이클</span><span style="color:var(--accent)">본인 계정에서만 · 자동실행 안 함</span>`;
+  const card = (l)=>`<div class="finding">
+      <div class="top"><span class="title">[${esc(l.id)}] ${esc(l.title)}</span>
+        <span class="badge">모듈 ${esc(l.module_id)}</span><span class="badge">~${l.est_minutes}분</span></div>
+      <div class="meta">🎯 ${esc(l.objective)}
+        <br>🛡️ <b>탐지 규칙</b>: ${chips(l.detected_by)}
+        <br>💰 ${esc(l.cost_note)}
+        <br><button class="btn" style="margin-top:6px" onclick="showLabPlan('${jsEsc(l.id)}')">실습 계획 보기</button></div></div>`;
+  document.getElementById('results').innerHTML = labs.map(card).join('');
+}
+
+async function showLabPlan(labId){
+  document.getElementById('err').textContent='';
+  let p;
+  try { p = await (await fetch('/api/lab?id='+encodeURIComponent(labId))).json(); }
+  catch(e){ document.getElementById('err').textContent='실습 계획 로드 실패: '+e; return; }
+  if(!p || !p.ok){ document.getElementById('err').textContent=(p&&p.error)||'실습을 찾을 수 없습니다.'; return; }
+  document.getElementById('summary').innerHTML =
+    `<span><b>${esc(p.id)}</b> ${esc(p.title)}</span><span>~${p.est_minutes}분</span>`+
+    (p.has_destructive?`<span style="color:#f88">⚠️ 파괴적 단계 포함</span>`:'');
+  const stepBadge = (s)=>`<span class="badge">${esc(s.name)}</span>`+(s.destructive?`<span class="badge" style="border-color:#f88;color:#f88">삭제/비활성</span>`:'');
+  const cmds = (arr)=> (arr&&arr.length)
+    ? `<pre style="white-space:pre-wrap;background:#0b1220;border:1px solid var(--border);border-radius:8px;padding:8px;margin:6px 0;font-size:12px">${arr.map(esc).join('\\n')}</pre>`
+    : '';
+  let html = `<div class="finding"><div class="meta">
+      🎯 <b>목표</b>: ${esc(p.objective)}
+      <br>🛡️ <b>탐지 규칙</b>: ${chips(p.detected_by)}
+      <br>📋 <b>사전 조건</b>: ${listOf(p.prerequisites)}
+      <br>💰 ${esc(p.cost_note)}
+      <br>⚠️ <b>안전</b>: ${listOf(p.safety)}
+      <br><span style="opacity:.85">${esc(p.note)}</span></div></div>`;
+  html += (p.steps||[]).map((s,i)=>`<div class="finding">
+      <div class="top"><span class="title">${i+1}. ${esc(s.title)}</span>${stepBadge(s)}</div>
+      <div class="meta">${esc(s.explain)}${cmds(s.commands)}</div></div>`).join('');
+  document.getElementById('results').innerHTML = html;
 }
 
 async function showOverview(){
@@ -475,6 +560,7 @@ function render(data){
     `<span>제외: <b>${data.filtered_out}</b>건</span>`+
     `<span>최소 심각도: <b>${data.min_severity}</b></span>`;
   if (data.remediations) sum += `<span>대응 계획: <b>${data.remediations.length}</b>건</span>`;
+  if (data.playbooks) sum += `<span>플레이북: <b>${data.playbooks.length}</b>건</span>`;
   document.getElementById('summary').innerHTML = sum;
 
   const matchedIds = new Set(data.matched_findings.map(f=>f.id));
@@ -507,6 +593,21 @@ function render(data){
         ${params?`<div class="params">${esc(params)}</div>`:''}
         ${r.message?`<div class="meta">${esc(r.message)}</div>`:''}</div>`;
     }).join('') : '<div class="empty">유발된 자동 대응이 없습니다. (대응 대상 finding_type이 아니거나 대상 리소스 정보 부족)</div>';
+  }
+  // 대응 플레이북 (단계별 가이드, 명령 자동 실행 안 함)
+  if (data.playbooks){
+    html += '<h3 class="sec">📕 대응 플레이북 (단계별 가이드, 명령 자동 실행 안 함)</h3>';
+    html += data.playbooks.length ? data.playbooks.map(pb=>{
+      const steps = (pb.steps||[]).map(s=>{
+        const cmds = (s.commands||[]).map(c=>`<div class="params">$ ${esc(c)}</div>`).join('');
+        return `<div class="meta" style="margin-top:6px"><b>[${esc(s.phase)}]</b> ${esc(s.title)}<br>${esc(s.detail)}${cmds}</div>`;
+      }).join('');
+      return `<div class="rem"><div class="top"><span class="sev ${pb.severity}">${pb.severity}</span>
+        <span><b>${esc(pb.category_label)}</b></span><span class="badge">${esc(pb.finding_id)}</span></div>
+        ${pb.ip_note?`<div class="meta">🌐 ${esc(pb.ip_note)}</div>`:''}
+        ${steps}
+        <div class="meta" style="margin-top:6px;opacity:.75">⚠️ ${esc(pb.safety)}</div></div>`;
+    }).join('') : '<div class="empty">플레이북을 생성할 finding이 없습니다.</div>';
   }
   document.getElementById('results').innerHTML = html;
 }

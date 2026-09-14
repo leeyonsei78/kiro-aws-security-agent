@@ -40,6 +40,12 @@ class Config:
     # Email via SNS
     sns_topic_arn: str = field(default_factory=lambda: os.getenv("SNS_TOPIC_ARN", ""))
 
+    # 범용 Webhook (n8n/Zapier/자체 수신 서버 등으로 구조화 JSON 전송)
+    webhook_url: str = field(default_factory=lambda: os.getenv("WEBHOOK_URL", ""))
+    webhook_source: str = field(
+        default_factory=lambda: os.getenv("WEBHOOK_SOURCE", "aws-security-agent")
+    )
+
     # --- 자동 대응(remediation) ---
     # 기본 비활성. 켜더라도 dry_run 기본 True라 실제 변경은 이중으로 명시해야 함.
     remediation_enabled: bool = field(
@@ -93,6 +99,8 @@ class Config:
             auto.append("slack")
         if self.sns_topic_arn:
             auto.append("email_sns")
+        if self.webhook_url:
+            auto.append("webhook")
         return auto or ["stdout"]
 
 

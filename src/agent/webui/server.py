@@ -22,6 +22,7 @@ import logging
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from ..academy import labs_summary, modules_summary, plan_lab
 from ..compliance.registry import all_checks
 from ..config import load_config
 from ..core import preview_parse, preview_pipeline
@@ -105,6 +106,19 @@ class Handler(BaseHTTPRequestHandler):
         elif self.path == "/api/target":
             # 현재 모니터링 대상 상태(리전/활성 collector/자격증명 유무)
             self._send_json(target_status(load_config()))
+        elif self.path == "/api/academy":
+            # 화이트해커(블루팀) 양성: 학습 모듈 + 실습 랩 목록
+            self._send_json({"modules": modules_summary(), "labs": labs_summary()})
+        elif self.path.startswith("/api/lab"):
+            # 특정 실습 랩의 실행 계획(자동 실행하지 않음)
+            from urllib.parse import parse_qs, urlparse
+
+            qs = parse_qs(urlparse(self.path).query)
+            lab_id = (qs.get("id", [""])[0]).strip()
+            if not lab_id:
+                self._send_json({"ok": False, "error": "id 파라미터가 필요합니다."}, status=400)
+            else:
+                self._send_json(plan_lab(lab_id))
         else:
             self._send_json({"error": "not found"}, status=404)
 

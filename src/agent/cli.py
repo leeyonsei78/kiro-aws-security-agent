@@ -25,6 +25,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--event", help="EventBridge 이벤트 JSON 파일 경로(실시간 경로 테스트)")
     parser.add_argument("--compliance-report", action="store_true",
                         help="컴플라이언스 점검 후 점수/리포트 출력(AWS 자격증명 필요)")
+    parser.add_argument("--academy", action="store_true",
+                        help="화이트해커(블루팀) 양성 프로그램: 학습 모듈 목록/상세 출력")
+    parser.add_argument("--module", help="특정 학습 모듈 상세(예: M01)")
+    parser.add_argument("--list-labs", action="store_true", help="실습 랩 목록 출력")
+    parser.add_argument("--lab", help="특정 실습 랩의 실행 계획 출력(예: LAB-SG-OPEN). 명령은 자동 실행하지 않음")
+    parser.add_argument("--playbook", action="store_true",
+                        help="컴플라이언스 점검 위반 각각에 대한 대응 플레이북(단계별 가이드) 출력. 명령은 자동 실행하지 않음")
     parser.add_argument("--json", action="store_true", help="리포트를 JSON으로 출력")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -41,6 +48,57 @@ def main(argv: list[str] | None = None) -> int:
         cfg.min_severity = Severity.from_name(args.min_severity)
     if args.collectors:
         cfg.collectors = [c.strip() for c in args.collectors.split(",") if c.strip()]
+
+    # --- 화이트해커(블루팀) 양성 프로그램 (AWS 자격증명 불필요) ---
+    if args.academy or args.module or args.list_labs or args.lab:
+        from .academy import labs_summary, modules_summary, plan_lab
+        from .academy.format import (
+            format_lab_plan,
+            format_labs_list,
+            format_module_detail,
+            format_modules_list,
+        )
+
+        if args.json:
+            if args.lab:
+                print(json.dumps(plan_lab(args.lab), ensure_ascii=False, indent=2))
+            elif args.list_labs:
+                print(json.dumps(labs_summary(), ensure_ascii=False, indent=2))
+            else:
+                print(json.dumps(modules_summary(), ensure_ascii=False, indent=2))
+            return 0
+
+        if args.module:
+            print(format_module_detail(args.module))
+        elif args.lab:
+            print(format_lab_plan(args.lab))
+        elif args.list_labs:
+            print(format_labs_list())
+        else:
+            print(format_modules_list())
+        return 0
+
+    # --- 대응 플레이북: 컴플라이언스 위반별 단계별 대응 가이드 (AWS 자격증명 필요) ---
+    if args.playbook:
+        from datetime import timezone, datetime as _dt
+
+        from .playbook import build_playbooks, format_playbooks_text
+        from .registry import build_collector
+
+        collector = build_collector("compliance", cfg)
+        findings = []
+        if collector:
+            try:
+                findings = list(collector.collect(since=_dt.now(timezone.utc)))
+            except Exception as e:  # noqa: BLE001
+                print(f"컴플라이언스 점검 실패(자격증명/권한 확인 필요): {e}", file=sys.stderr)
+                return 1
+        playbooks = build_playbooks(findings)
+        if args.json:
+            print(json.dumps(playbooks, ensure_ascii=False, indent=2))
+        else:
+            print(format_playbooks_text(playbooks))
+        return 0
 
     if args.compliance_report:
         from .compliance.report import format_report_text

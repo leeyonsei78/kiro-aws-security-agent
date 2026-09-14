@@ -23,6 +23,7 @@ from .notifiers.base import BaseNotifier
 from .notifiers.email_sns import EmailSnsNotifier
 from .notifiers.slack import SlackNotifier
 from .notifiers.stdout import StdoutNotifier
+from .notifiers.webhook import WebhookNotifier
 from .remediators.base import BaseRemediator
 from .remediators.ec2_quarantine import Ec2QuarantineRemediator
 from .remediators.iam_disable_key import IamDisableKeyRemediator
@@ -102,6 +103,8 @@ def _build_notifier(name: str, cfg: Config) -> BaseNotifier | None:
         return SlackNotifier(webhook_url=cfg.slack_webhook_url)
     if name == "email_sns":
         return EmailSnsNotifier(topic_arn=cfg.sns_topic_arn, region=cfg.region)
+    if name == "webhook":
+        return WebhookNotifier(webhook_url=cfg.webhook_url, source=cfg.webhook_source)
     if name == "stdout":
         return StdoutNotifier()
     logger.warning("알 수 없는 notifier: %s", name)
@@ -210,6 +213,9 @@ _NOTIFIER_INFO: dict[str, dict[str, str]] = {
               "collects": "심각도 이상 finding을 요약해 메시지로 발송"},
     "email_sns": {"label": "Email (SNS)", "desc": "AWS SNS 토픽에 이메일을 구독해 알림 수신.",
                   "collects": "finding 요약 + 권고 조치를 이메일 본문으로 발송"},
+    "webhook": {"label": "Webhook (구조화 JSON)",
+                "desc": "임의의 HTTP 엔드포인트(n8n/Zapier/자체 서버)로 구조화된 JSON 전송. 후속 자동화 연동용.",
+                "collects": "요약 수치 + finding 목록을 JSON payload로 POST"},
     "stdout": {"label": "표준 출력", "desc": "화면(콘솔)에 출력. 로컬 테스트/디버깅용.",
                "collects": "finding을 텍스트로 콘솔에 출력"},
 }

@@ -11,6 +11,8 @@
 | `AWS_REGION` | (SDK 기본) | 대상 리전 |
 | `SLACK_WEBHOOK_URL` | - | Slack Incoming Webhook URL |
 | `SNS_TOPIC_ARN` | - | 이메일 알림용 SNS 토픽 ARN |
+| `WEBHOOK_URL` | - | 범용 Webhook notifier 대상 HTTP 엔드포인트(n8n/Zapier/자체 서버). 설정 시 자동 활성 |
+| `WEBHOOK_SOURCE` | `aws-security-agent` | Webhook payload의 `source` 필드 값 |
 | `REMEDIATION_ENABLED` | `false` | 자동 대응 활성화 여부 |
 | `REMEDIATION_DRY_RUN` | `true` | 계획만 산출(실제 변경 안 함). 실제 적용은 `false`로 명시 |
 | `REMEDIATORS` | (전체) | 활성화할 remediator (쉼표구분) |
