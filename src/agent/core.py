@@ -228,6 +228,10 @@ def preview_pipeline(*, event: dict | None = None, firewall_payload: dict | None
                 continue
             remediations.append(result.to_dict())
 
+    # 3) 대응 플레이북 미리보기 (결정론적 단계별 가이드, 실행 없음)
+    from .playbook import build_playbooks
+    playbooks = build_playbooks(matched)
+
     return {
         "ok": True,
         "total": len(collected),
@@ -238,6 +242,7 @@ def preview_pipeline(*, event: dict | None = None, firewall_payload: dict | None
         "matched_findings": [f.to_dict() for f in matched],
         "notifications": notifications,
         "remediations": remediations,
+        "playbooks": playbooks,
     }
 
 

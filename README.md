@@ -22,7 +22,7 @@ AWS 보안 서비스/장비의 findings(위협 탐지 결과)를 **수집 → �
 | 구분 | 지원 |
 |------|------|
 | Collector | Amazon GuardDuty, AWS Security Hub, Security Group(위험 개방 감지), IAM Access Analyzer(외부 공유), CloudTrail(위험 API 감지), VPC Flow Logs(이상 트래픽), 써드파티 방화벽(Palo Alto / Fortinet / Check Point / CEF), 컴플라이언스 점검(KISA/CIS 기반 CA 항목) |
-| Notifier | Slack (Incoming Webhook), Email (SNS) |
+| Notifier | Slack (Incoming Webhook), Email (SNS), Webhook (구조화 JSON — n8n/Zapier 등 후속 자동화 연동) |
 | Remediator | `nacl_block_ip`, `sg_revoke_ingress`, `s3_public_block`, `waf_ipset_block`, `iam_disable_key`, `ec2_quarantine` |
 | 실행 | AWS Lambda (스케줄 폴링 / 실시간 이벤트 / API Gateway HTTP 수신), 로컬 CLI |
 
@@ -65,7 +65,9 @@ src/agent/
     base.py            # BaseNotifier 인터페이스
     slack.py           # Slack notifier
     email_sns.py       # Email(SNS) notifier
+    webhook.py         # 범용 Webhook notifier (구조화 JSON POST — n8n/Zapier 등)
     stdout.py          # stdout notifier (로컬/디버깅)
+  playbook.py          # 대응 플레이북 (finding → 단계별 대응 가이드, 결정론적)
   remediators/
     base.py            # BaseRemediator + 안전장치(dry-run/화이트리스트/감사)
     nacl_block_ip.py   # 위협 IP를 NACL deny로 차단
@@ -116,7 +118,7 @@ $env:PYTHONPATH="src"; python -m agent.webui.server
 접속하면 **전체 기능 개요 · 방화벽 · AWS 이벤트 · 컴플라이언스 · 모니터링 대상 지정 · 화이트해커 양성 · 용어 사전** 7개 탭이 있으며, 각 화면에서 무엇을 점검/수집하는지 설명을 제공합니다.
 
 - **파싱·필터만** 모드: 정규화된 finding과 심각도 필터 통과/제외 확인
-- **전체 파이프라인** 모드: 위에 더해 **알림 메시지 미리보기**(Slack/Email/stdout)와 **자동 대응 dry-run 계획**(NACL/SG/S3/WAF/IAM/EC2)까지 — 실제 전송·변경은 없음
+- **전체 파이프라인** 모드: 위에 더해 **알림 메시지 미리보기**(Slack/Email/Webhook/stdout), **자동 대응 dry-run 계획**(NACL/SG/S3/WAF/IAM/EC2), **대응 플레이북**(finding별 단계별 조치 가이드)까지 — 실제 전송·변경은 없음
 
 자세한 사용법은 [docs/WEBUI.md](docs/WEBUI.md).
 
@@ -143,6 +145,35 @@ PYTHONPATH=src python -m agent.cli --lab LAB-SG-OPEN  # 실습 계획(명령 자
 ```
 
 웹 콘솔의 **화이트해커 양성** 탭에서도 볼 수 있습니다. 실제 익스플로잇/공격 코드는 제공하지 않으며, 모든 실습은 **본인 소유 테스트 계정**에서만 수행합니다. 자세한 내용은 [docs/ACADEMY.md](docs/ACADEMY.md).
+
+
+## 대응 플레이북 (Response Playbook)
+
+탐지된 finding을 **무엇을·어떤 순서로 조치해야 하는가**로 매핑하는 결정론적(비-AI) 가이드입니다. finding 유형(CA/SC/ZT 코드, GuardDuty 타입, 방화벽 소스)을 카테고리로 분류해 **즉시조치 → 조사 → 봉쇄 → 복구/재발방지** 4단계와 참고용 AWS CLI 명령을 제시합니다.
+
+```bash
+# 컴플라이언스 위반 각각에 대한 대응 플레이북 출력(명령은 자동 실행하지 않음)
+PYTHONPATH=src python -m agent.cli --playbook
+PYTHONPATH=src python -m agent.cli --playbook --json
+```
+
+웹 콘솔 **전체 파이프라인** 모드 결과의 "📕 대응 플레이북" 섹션에서도 볼 수 있습니다.
+
+> ⚠️ 안전: 플레이북의 명령은 **참고용 텍스트**이며 자동 실행되지 않습니다. 공격자 IP 차단 제안은 **외부 공인 IP에 대해서만** 하며, 사설/내부 IP는 자동 제외합니다.
+
+## Webhook 알림 연동 (n8n / Zapier / 자체 서버)
+
+Slack/Email 외에 **범용 Webhook notifier**로 구조화된 JSON을 임의의 HTTP 엔드포인트로 보낼 수 있습니다. n8n·Zapier 등에서 받아 Jira 티켓 생성, Notion 기록 등 후속 자동화를 코드 수정 없이 붙일 수 있습니다.
+
+```bash
+# 환경변수만 설정하면 자동 활성화
+WEBHOOK_URL=https://your-endpoint.example/hook
+WEBHOOK_SOURCE=aws-security-agent   # (선택) payload의 source 필드
+```
+
+payload 예: `{"source", "summary", "count", "severity_counts", "max_severity", "findings":[...]}`
+
+배포 시에는 SAM 파라미터/환경변수로 `WEBHOOK_URL`을 전달하면 됩니다. 자세한 설정은 [docs/CONFIG.md](docs/CONFIG.md).
 
 
 ## 개발 / 테스트

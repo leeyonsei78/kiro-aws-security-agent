@@ -560,6 +560,7 @@ function render(data){
     `<span>제외: <b>${data.filtered_out}</b>건</span>`+
     `<span>최소 심각도: <b>${data.min_severity}</b></span>`;
   if (data.remediations) sum += `<span>대응 계획: <b>${data.remediations.length}</b>건</span>`;
+  if (data.playbooks) sum += `<span>플레이북: <b>${data.playbooks.length}</b>건</span>`;
   document.getElementById('summary').innerHTML = sum;
 
   const matchedIds = new Set(data.matched_findings.map(f=>f.id));
@@ -592,6 +593,21 @@ function render(data){
         ${params?`<div class="params">${esc(params)}</div>`:''}
         ${r.message?`<div class="meta">${esc(r.message)}</div>`:''}</div>`;
     }).join('') : '<div class="empty">유발된 자동 대응이 없습니다. (대응 대상 finding_type이 아니거나 대상 리소스 정보 부족)</div>';
+  }
+  // 대응 플레이북 (단계별 가이드, 명령 자동 실행 안 함)
+  if (data.playbooks){
+    html += '<h3 class="sec">📕 대응 플레이북 (단계별 가이드, 명령 자동 실행 안 함)</h3>';
+    html += data.playbooks.length ? data.playbooks.map(pb=>{
+      const steps = (pb.steps||[]).map(s=>{
+        const cmds = (s.commands||[]).map(c=>`<div class="params">$ ${esc(c)}</div>`).join('');
+        return `<div class="meta" style="margin-top:6px"><b>[${esc(s.phase)}]</b> ${esc(s.title)}<br>${esc(s.detail)}${cmds}</div>`;
+      }).join('');
+      return `<div class="rem"><div class="top"><span class="sev ${pb.severity}">${pb.severity}</span>
+        <span><b>${esc(pb.category_label)}</b></span><span class="badge">${esc(pb.finding_id)}</span></div>
+        ${pb.ip_note?`<div class="meta">🌐 ${esc(pb.ip_note)}</div>`:''}
+        ${steps}
+        <div class="meta" style="margin-top:6px;opacity:.75">⚠️ ${esc(pb.safety)}</div></div>`;
+    }).join('') : '<div class="empty">플레이북을 생성할 finding이 없습니다.</div>';
   }
   document.getElementById('results').innerHTML = html;
 }

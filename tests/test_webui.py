@@ -114,7 +114,7 @@ def test_capabilities_content():
     caps = capabilities()
     assert len(caps["collectors"]) == 8
     assert len(caps["remediators"]) == 6
-    assert {"slack", "email_sns", "stdout"} == {n["name"] for n in caps["notifiers"]}
+    assert {"slack", "email_sns", "webhook", "stdout"} == {n["name"] for n in caps["notifiers"]}
     # remediator supported_types가 채워지는지(예: nacl_block_ip)
     nacl = next(r for r in caps["remediators"] if r["name"] == "nacl_block_ip")
     assert nacl["supported_types"], "supported_types가 비어있음"

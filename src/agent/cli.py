@@ -30,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--module", help="특정 학습 모듈 상세(예: M01)")
     parser.add_argument("--list-labs", action="store_true", help="실습 랩 목록 출력")
     parser.add_argument("--lab", help="특정 실습 랩의 실행 계획 출력(예: LAB-SG-OPEN). 명령은 자동 실행하지 않음")
+    parser.add_argument("--playbook", action="store_true",
+                        help="컴플라이언스 점검 위반 각각에 대한 대응 플레이북(단계별 가이드) 출력. 명령은 자동 실행하지 않음")
     parser.add_argument("--json", action="store_true", help="리포트를 JSON으로 출력")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
@@ -74,6 +76,28 @@ def main(argv: list[str] | None = None) -> int:
             print(format_labs_list())
         else:
             print(format_modules_list())
+        return 0
+
+    # --- 대응 플레이북: 컴플라이언스 위반별 단계별 대응 가이드 (AWS 자격증명 필요) ---
+    if args.playbook:
+        from datetime import timezone, datetime as _dt
+
+        from .playbook import build_playbooks, format_playbooks_text
+        from .registry import build_collector
+
+        collector = build_collector("compliance", cfg)
+        findings = []
+        if collector:
+            try:
+                findings = list(collector.collect(since=_dt.now(timezone.utc)))
+            except Exception as e:  # noqa: BLE001
+                print(f"컴플라이언스 점검 실패(자격증명/권한 확인 필요): {e}", file=sys.stderr)
+                return 1
+        playbooks = build_playbooks(findings)
+        if args.json:
+            print(json.dumps(playbooks, ensure_ascii=False, indent=2))
+        else:
+            print(format_playbooks_text(playbooks))
         return 0
 
     if args.compliance_report:
