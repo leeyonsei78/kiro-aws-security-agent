@@ -123,6 +123,13 @@ Resources:
                 - logs:StartQuery
                 - logs:GetQueryResults
                 - logs:StopQuery
+                # IAM 읽기(계정 하드닝 점검: CA-10 비밀번호 정책, CA-11 루트 키, CA-12 MFA, CA-13 다중 키)
+                - iam:GetAccountPasswordPolicy
+                - iam:GetAccountSummary
+                - iam:ListUsers
+                - iam:GetLoginProfile
+                - iam:ListMFADevices
+                - iam:ListAccessKeys
               Resource: "*"
         - SNSPublishMessagePolicy:
             TopicName: !GetAtt AlertsTopic.TopicName
